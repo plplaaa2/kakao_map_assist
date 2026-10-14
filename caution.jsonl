@@ -1,0 +1,3 @@
+{"date":"2026-10-14","type":"publishing_requirement","message":"Replace example.com manifest URLs and empty codeowners before publishing. Version 0.0.0 is a scaffold placeholder, not an approved release version."}
+{"date":"2026-10-14","type":"implementation_boundary","message":"The scaffold has no setup, config flow, API calls, or entities. Obtain implementation plan approval before adding runtime logic."}
+{"date":"2026-10-14","type":"git_prerequisite","message":"No Git repository or remote exists at scaffold creation. Configure the repository before applying dev backup and push procedures."}

@@ -1,0 +1,1 @@
+{"date":"2026-10-14","branch":"dev","dev_version":"dev.1","changes":["Created the minimal KakaoMap custom integration skeleton based on official HACS and Home Assistant documentation.","Added repository metadata, Korean README, English structure reference, and development cautions."],"status":"scaffold_only","git_push":"unavailable_no_git_repository"}

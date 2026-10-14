@@ -1,0 +1,11 @@
+{
+  "domain": "kakaomap",
+  "name": "KakaoMap",
+  "codeowners": [],
+  "config_flow": false,
+  "dependencies": [],
+  "documentation": "https://example.com/kakaomap",
+  "issue_tracker": "https://example.com/kakaomap/issues",
+  "requirements": [],
+  "version": "0.0.0"
+}
