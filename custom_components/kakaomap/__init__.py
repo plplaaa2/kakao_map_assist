@@ -19,6 +19,7 @@ from .api import (
     KakaoMapPermissionError, KakaoMapRateLimitError, KakaoMapResponseError, KakaoMapRouteError,
 )
 from .const import DEFAULT_LIMIT, DOMAIN, ROUTE_URLS, SERVICE_GET_ROUTE, SERVICE_SEARCH_PLACES
+from .notifications import async_notify_auth_failure
 
 _LOGGER = logging.getLogger(__name__)
 type KakaoMapConfigEntry = ConfigEntry[KakaoMapClient]
@@ -60,6 +61,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: KakaoMapConfigEntry) -> 
         except ValueError:
             raise ServiceValidationError("장소명 또는 주소를 입력하고 결과 수를 1~15로 지정하세요.") from None
         except KakaoMapAuthError:
+            # Persistent authentication alert; related file: notifications.py.
+            async_notify_auth_failure(hass, entry.entry_id)
             entry.async_start_reauth(hass)
             raise HomeAssistantError("카카오 인증에 실패했습니다. 통합 설정에서 API 키를 다시 등록하세요.") from None
         except KakaoMapPermissionError:
@@ -78,6 +81,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: KakaoMapConfigEntry) -> 
         except ValueError:
             raise ServiceValidationError("출발·도착 위도와 경도 및 이동 수단을 확인하세요. 출발·도착지는 서로 달라야 합니다.") from None
         except KakaoMapAuthError:
+            # Reuse the same alert ID for route failures; see notifications.py.
+            async_notify_auth_failure(hass, entry.entry_id)
             entry.async_start_reauth(hass)
             raise HomeAssistantError("카카오 인증에 실패했습니다. 통합 설정에서 API 키를 다시 등록하세요.") from None
         except KakaoMapPermissionError:

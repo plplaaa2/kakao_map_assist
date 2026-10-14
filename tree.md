@@ -16,6 +16,7 @@ kakaomap/
 |   |-- test_config_flow.py       # Setup, replacement, and duplicate tests
 |   |-- test_metadata.py          # UI metadata and translation contracts
 |   |-- test_llm.py               # Provider registration, tool calls, and lifecycle
+|   |-- test_notifications.py     # Auth alerts, deduplication and recovery
 |   |-- test_routes.py            # Route HTTP, normalization and HA action tests
 |   `-- test_integration.py       # HA action response and lifecycle tests
 `-- custom_components/
@@ -24,6 +25,7 @@ kakaomap/
         |-- api.py                # Async Kakao place search and routing client
         |-- routes.py             # Route summary normalization without geometry
         |-- llm.py                # Opt-in Assist provider, tools and instructions
+        |-- notifications.py      # Auth error notices and validated-key recovery
         |-- config_flow.py        # API-key setup, replacement, reauthentication
         |-- const.py              # Shared identifiers and request defaults
         |-- manifest.json         # HA metadata; repository URLs need replacement

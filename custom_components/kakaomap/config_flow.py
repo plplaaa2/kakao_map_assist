@@ -17,6 +17,7 @@ from .api import (
     KakaoMapPermissionError, KakaoMapRateLimitError, KakaoMapResponseError,
 )
 from .const import DOMAIN
+from .notifications import async_dismiss_auth_notification
 
 KEY_SCHEMA = vol.Schema({vol.Required(CONF_API_KEY): TextSelector(
     TextSelectorConfig(type=TextSelectorType.PASSWORD)
@@ -57,11 +58,14 @@ class KakaoMapConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         return self.async_create_entry(title="KakaoMap", data=data)
                     entry = (self._get_reauth_entry() if step_id == "reauth_confirm"
                              else self._get_reconfigure_entry())
-                    return self.async_update_reload_and_abort(
+                    result = self.async_update_reload_and_abort(
                         entry, data_updates=data,
                         reason="reauth_successful" if step_id == "reauth_confirm"
                         else "reconfigure_successful",
                     )
+                    # Clear the alert only after validation and saving; see notifications.py.
+                    async_dismiss_auth_notification(self.hass, entry.entry_id)
+                    return result
         return self.async_show_form(step_id=step_id, data_schema=KEY_SCHEMA, errors=errors)
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
