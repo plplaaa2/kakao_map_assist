@@ -1,0 +1,25 @@
+search_places:
+  name: 장소 검색
+  description: 장소명 또는 주소로 카카오맵 장소 후보를 검색하고 기본 정보를 반환합니다. 둘 중 하나 이상을 입력하세요.
+  fields:
+    name:
+      name: 장소명
+      description: 검색할 장소 또는 업체 이름입니다.
+      example: 스타벅스
+      selector:
+        text:
+    address:
+      name: 주소 또는 지역
+      description: 장소 검색에 함께 사용할 주소나 지역명입니다. 주소 좌표 변환 전용 기능은 아닙니다.
+      example: 서울 강남구
+      selector:
+        text:
+    limit:
+      name: 최대 결과 수
+      description: 한 번에 반환할 장소 수입니다.
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 15
+          mode: box

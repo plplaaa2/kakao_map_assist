@@ -1,0 +1,39 @@
+{
+  "title": "KakaoMap",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect KakaoMap",
+        "description": "Enter the REST API key of an app with KakaoMap API enabled. Validation performs one search request.",
+        "data": {
+          "api_key": "REST API key"
+        }
+      },
+      "reconfigure": {
+        "title": "Change API key",
+        "data": {
+          "api_key": "New REST API key"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Renew KakaoMap authentication",
+        "description": "Enter a working REST API key.",
+        "data": {
+          "api_key": "REST API key"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Check the REST API key.",
+      "permission_denied": "Check KakaoMap API activation and key permissions.",
+      "rate_limited": "The API request limit was reached. Try again later.",
+      "cannot_connect": "Cannot connect to the Kakao API.",
+      "invalid_response": "The Kakao API rejected the request or returned an invalid response."
+    },
+    "abort": {
+      "already_configured": "KakaoMap is already configured.",
+      "reconfigure_successful": "The API key was updated.",
+      "reauth_successful": "Authentication was updated."
+    }
+  }
+}

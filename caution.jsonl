@@ -1,3 +1,6 @@
 {"date":"2026-10-14","type":"publishing_requirement","message":"Replace example.com manifest URLs and empty codeowners before publishing. Version 0.0.0 is a scaffold placeholder, not an approved release version."}
 {"date":"2026-10-14","type":"implementation_boundary","message":"The scaffold has no setup, config flow, API calls, or entities. Obtain implementation plan approval before adding runtime logic."}
 {"date":"2026-10-14","type":"git_prerequisite","message":"No Git repository or remote exists at scaffold creation. Configure the repository before applying dev backup and push procedures."}
+{"date":"2026-10-14","type":"approved_git_exception","message":"The user approved local dev commit backups instead of remote pushes for the 0.1.0 development task. Initial scaffold backup commit: 11d89df."}
+{"date":"2026-10-14","type":"api_contract","message":"Current KakaoMap REST API documentation requires a coordinate/radius or rectangle search scope. Version 0.1.0 uses a Korea-area rectangle, and address input remains keyword place search, not address geocoding."}
+{"date":"2026-10-14","type":"publishing_requirement","message":"Version 0.1.0 supersedes the scaffold version placeholder. Repository URLs and codeowners still require actual repository information before HACS publishing."}

@@ -1,0 +1,39 @@
+{
+  "title": "KakaoMap",
+  "config": {
+    "step": {
+      "user": {
+        "title": "카카오맵 연결",
+        "description": "카카오맵 API가 활성화된 앱의 REST API 키를 입력하세요. 등록 확인을 위해 검색 요청 1회를 수행합니다.",
+        "data": {
+          "api_key": "REST API 키"
+        }
+      },
+      "reconfigure": {
+        "title": "API 키 변경",
+        "data": {
+          "api_key": "새 REST API 키"
+        }
+      },
+      "reauth_confirm": {
+        "title": "카카오맵 인증 갱신",
+        "description": "사용 가능한 REST API 키를 다시 입력하세요.",
+        "data": {
+          "api_key": "REST API 키"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "REST API 키를 확인하세요.",
+      "permission_denied": "앱의 카카오맵 API 활성화와 키 사용 권한을 확인하세요.",
+      "rate_limited": "API 호출 한도를 초과했습니다. 잠시 후 다시 시도하세요.",
+      "cannot_connect": "카카오 API에 연결할 수 없습니다.",
+      "invalid_response": "카카오 API가 요청을 거부했거나 올바르지 않은 응답을 반환했습니다."
+    },
+    "abort": {
+      "already_configured": "카카오맵은 이미 설정되어 있습니다.",
+      "reconfigure_successful": "API 키를 변경했습니다.",
+      "reauth_successful": "인증 정보를 갱신했습니다."
+    }
+  }
+}
