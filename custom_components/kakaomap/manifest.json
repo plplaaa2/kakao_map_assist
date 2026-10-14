@@ -3,7 +3,7 @@
   "name": "KakaoMap",
   "codeowners": [],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": ["llm"],
   "documentation": "https://example.com/kakaomap",
   "issue_tracker": "https://example.com/kakaomap/issues",
   "integration_type": "service",

@@ -11,6 +11,7 @@ from homeassistant.const import CONF_API_KEY
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import llm as ha_llm
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import (
@@ -42,6 +43,12 @@ ROUTE_SCHEMA = vol.Schema({
 
 async def async_setup_entry(hass: HomeAssistant, entry: KakaoMapConfigEntry) -> bool:
     """Create a client and expose on-demand place and route response actions."""
+    # Register the Assist provider with entry-scoped cleanup; related file: llm.py.
+    from .llm import KakaoMapAPI
+
+    entry.async_on_unload(ha_llm.async_register_api(hass, KakaoMapAPI(
+        hass=hass, id=f"{DOMAIN}-{entry.entry_id}", name="KakaoMap",
+    )))
     entry.runtime_data = KakaoMapClient(async_get_clientsession(hass), entry.data[CONF_API_KEY])
 
     async def async_search_places(call: ServiceCall) -> ServiceResponse:

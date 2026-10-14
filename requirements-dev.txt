@@ -2,3 +2,7 @@
 homeassistant==2026.10.1
 pytest==9.1.1
 pytest-asyncio==1.4.0
+# Dependencies of HA's conversation module used by APIInstance tool dispatch.
+gazetteer-matcher==1.1.0
+hassil==3.12.1
+home-assistant-intents==2026.10.6

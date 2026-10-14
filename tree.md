@@ -15,6 +15,7 @@ kakaomap/
 |   |-- test_api.py               # Loopback HTTP and payload tests
 |   |-- test_config_flow.py       # Setup, replacement, and duplicate tests
 |   |-- test_metadata.py          # UI metadata and translation contracts
+|   |-- test_llm.py               # Provider registration, tool calls, and lifecycle
 |   |-- test_routes.py            # Route HTTP, normalization and HA action tests
 |   `-- test_integration.py       # HA action response and lifecycle tests
 `-- custom_components/
@@ -22,6 +23,7 @@ kakaomap/
         |-- __init__.py           # Response action registration and cleanup
         |-- api.py                # Async Kakao place search and routing client
         |-- routes.py             # Route summary normalization without geometry
+        |-- llm.py                # Opt-in Assist provider, tools and instructions
         |-- config_flow.py        # API-key setup, replacement, reauthentication
         |-- const.py              # Shared identifiers and request defaults
         |-- manifest.json         # HA metadata; repository URLs need replacement
@@ -32,5 +34,5 @@ kakaomap/
             `-- ko.json           # Korean setup strings
 ```
 
-Version 0.1.0 has no entities or scheduled polling. Conversation-agent tool
-registration is a future extension. The ignored .venv directory is local only.
+Version 0.1.0 has no entities or scheduled polling. The KakaoMap LLM provider
+must be selected in a compatible conversation agent. The ignored .venv directory is local only.
