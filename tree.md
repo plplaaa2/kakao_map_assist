@@ -15,15 +15,17 @@ kakaomap/
 |   |-- test_api.py               # Loopback HTTP and payload tests
 |   |-- test_config_flow.py       # Setup, replacement, and duplicate tests
 |   |-- test_metadata.py          # UI metadata and translation contracts
+|   |-- test_routes.py            # Route HTTP, normalization and HA action tests
 |   `-- test_integration.py       # HA action response and lifecycle tests
 `-- custom_components/
     `-- kakaomap/
         |-- __init__.py           # Response action registration and cleanup
-        |-- api.py                # Async Kakao keyword search client
+        |-- api.py                # Async Kakao place search and routing client
+        |-- routes.py             # Route summary normalization without geometry
         |-- config_flow.py        # API-key setup, replacement, reauthentication
         |-- const.py              # Shared identifiers and request defaults
         |-- manifest.json         # HA metadata; repository URLs need replacement
-        |-- services.yaml         # Search action fields
+        |-- services.yaml         # Place search and route action fields
         |-- strings.json          # English UI source strings
         `-- translations/
             |-- en.json           # English setup strings

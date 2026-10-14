@@ -1,4 +1,4 @@
-"""Register the response action; related files: api.py, config_flow.py, services.yaml."""
+"""Register response actions; related files: api.py, routes.py, config_flow.py, services.yaml."""
 
 from __future__ import annotations
 
@@ -15,9 +15,9 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import (
     KakaoMapAuthError, KakaoMapClient, KakaoMapConnectionError,
-    KakaoMapPermissionError, KakaoMapRateLimitError, KakaoMapResponseError,
+    KakaoMapPermissionError, KakaoMapRateLimitError, KakaoMapResponseError, KakaoMapRouteError,
 )
-from .const import DEFAULT_LIMIT, DOMAIN, SERVICE_SEARCH_PLACES
+from .const import DEFAULT_LIMIT, DOMAIN, ROUTE_URLS, SERVICE_GET_ROUTE, SERVICE_SEARCH_PLACES
 
 _LOGGER = logging.getLogger(__name__)
 type KakaoMapConfigEntry = ConfigEntry[KakaoMapClient]
@@ -28,9 +28,20 @@ SEARCH_SCHEMA = vol.Schema({
     vol.Optional("limit", default=DEFAULT_LIMIT): vol.All(cv.positive_int, vol.Range(min=1, max=15)),
 })
 
+# Route action schema; related files: api.py, routes.py, services.yaml.
+ROUTE_SCHEMA = vol.Schema({
+    vol.Required("start_latitude"): cv.latitude,
+    vol.Required("start_longitude"): cv.longitude,
+    vol.Required("end_latitude"): cv.latitude,
+    vol.Required("end_longitude"): cv.longitude,
+    vol.Optional("mode", default="public_transport"): vol.In(ROUTE_URLS),
+    vol.Optional("start_name", default="출발"): cv.string,
+    vol.Optional("end_name", default="도착"): cv.string,
+})
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: KakaoMapConfigEntry) -> bool:
-    """Create a client and expose one on-demand response action."""
+    """Create a client and expose on-demand place and route response actions."""
     entry.runtime_data = KakaoMapClient(async_get_clientsession(hass), entry.data[CONF_API_KEY])
 
     async def async_search_places(call: ServiceCall) -> ServiceResponse:
@@ -53,16 +64,41 @@ async def async_setup_entry(hass: HomeAssistant, entry: KakaoMapConfigEntry) -> 
         except KakaoMapResponseError:
             raise HomeAssistantError("카카오 API가 요청을 거부했거나 올바르지 않은 결과를 반환했습니다.") from None
 
+    async def async_get_route(call: ServiceCall) -> ServiceResponse:
+        """Return route summaries; related files: api.py, routes.py, services.yaml."""
+        try:
+            return await entry.runtime_data.async_get_route(**call.data)
+        except ValueError:
+            raise ServiceValidationError("출발·도착 위도와 경도 및 이동 수단을 확인하세요. 출발·도착지는 서로 달라야 합니다.") from None
+        except KakaoMapAuthError:
+            entry.async_start_reauth(hass)
+            raise HomeAssistantError("카카오 인증에 실패했습니다. 통합 설정에서 API 키를 다시 등록하세요.") from None
+        except KakaoMapPermissionError:
+            raise HomeAssistantError("카카오맵 API 활성화 및 REST API 키의 사용 권한을 확인하세요.") from None
+        except KakaoMapRateLimitError:
+            raise HomeAssistantError("카카오 API 호출 한도를 초과했습니다. 잠시 후 다시 시도하세요.") from None
+        except KakaoMapConnectionError:
+            raise HomeAssistantError("카카오 API에 연결할 수 없습니다. 잠시 후 다시 시도하세요.") from None
+        except KakaoMapResponseError:
+            raise HomeAssistantError("카카오 API가 요청을 거부했거나 올바르지 않은 경로를 반환했습니다.") from None
+        except KakaoMapRouteError as error:
+            raise HomeAssistantError(str(error)) from None
+
     hass.services.async_register(
         DOMAIN, SERVICE_SEARCH_PLACES, async_search_places,
         schema=SEARCH_SCHEMA, supports_response=SupportsResponse.ONLY,
     )
-    _LOGGER.info("KakaoMap search action is ready")
+    hass.services.async_register(
+        DOMAIN, SERVICE_GET_ROUTE, async_get_route,
+        schema=ROUTE_SCHEMA, supports_response=SupportsResponse.ONLY,
+    )
+    _LOGGER.info("KakaoMap search and route actions are ready")
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: KakaoMapConfigEntry) -> bool:
-    """Remove the action when its connection is unloaded."""
+    """Remove both actions when their connection is unloaded."""
     hass.services.async_remove(DOMAIN, SERVICE_SEARCH_PLACES)
-    _LOGGER.info("KakaoMap search action was unloaded")
+    hass.services.async_remove(DOMAIN, SERVICE_GET_ROUTE)
+    _LOGGER.info("KakaoMap search and route actions were unloaded")
     return True

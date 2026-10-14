@@ -1,8 +1,9 @@
 # KakaoMap
 
-Home Assistant에서 카카오맵 장소를 검색하는 커스텀 통합입니다. 버전은 `0.1.0`입니다.
-REST API 키를 설정하고 `kakaomap.search_places` 액션으로 장소의 기본 정보를
-조회합니다. 센서는 생성하지 않으며, 대화 에이전트의 도구 연결은 별도 작업입니다.
+Home Assistant에서 카카오맵 장소와 경로를 검색하는 커스텀 통합입니다. 버전은 `0.1.0`입니다.
+REST API 키를 설정하고 `kakaomap.search_places`로 장소 정보,
+`kakaomap.get_route`로 이동 경로를 조회합니다. 센서는 생성하지 않으며,
+대화 에이전트의 도구 연결은 별도 작업입니다.
 Windows에서 Home Assistant `2026.10.1`을 기준으로 개발 및 자동 테스트했습니다.
 
 ## 설정
@@ -48,6 +49,45 @@ response_variable: search_result
 대화 에이전트가 자동으로 이 액션을 사용할 수 있는 것은 아닙니다.
 사용할 에이전트에 맞는 도구 등록 또는 LLM API 연결을 추가해야 합니다.
 
+## 경로 조회 액션
+
+`kakaomap.get_route`는 출발·도착 위도/경도 네 항목을 필수로 받습니다.
+좌표는 WGS84 기준이며, 장소 검색 결과의 `latitude`와 `longitude`를 사용할 수 있습니다.
+이동 수단 `mode`는 `public_transport`(기본값, 대중교통), `walk`(도보),
+`bicycle`(자전거)입니다. 출발·도착 이름은 선택 입력이며 각각 `출발`, `도착`이 기본값입니다.
+
+```yaml
+action: kakaomap.get_route
+data:
+  start_latitude: 37.3947766
+  start_longitude: 127.1111967
+  end_latitude: 37.4199324
+  end_longitude: 127.1262904
+  mode: public_transport
+  start_name: 출발역
+  end_name: 도착역
+response_variable: route_result
+```
+
+응답은 `mode`, 경로 수 `count`, 길찾기 링크 `route_url`, 경로 목록 `routes`입니다.
+각 경로에는 `distance_m`(미터), `duration_s`(초), `duration_minutes`(분),
+`route_url`, 이동 유형 `mode`, 구간별 안내 `steps`가 있습니다.
+대중교통 경로에는 `transfers`(환승 횟수), `fare`(원 단위 요금 정보)가 포함됩니다.
+`fare`는 API가 제공한 `value`, `min`, `max`만 포함하며 제공되지 않으면 `null`입니다.
+도보·자전거의 요금과 환승 횟수는 `null`입니다.
+대중교통 구간에는 정류장 이름 `stops`와 버스·지하철 이름/유형 `vehicles`도 포함됩니다.
+경로 지도용 좌표 배열은 응답 크기를 줄이기 위해 제외합니다.
+
+경로가 없으면 `routes: []`를 반환합니다. 동일 출발·도착지, 주변 도로/정류장을
+찾을 수 없는 경우, 너무 먼 경로 및 탐색 실패는 액션 오류로 표시합니다.
+소요 시간은 경로 조회 결과이며 실시간 버스 도착 시간 정보가 아닙니다.
+자동차 경로, 경유지 지정 및 경로 탐색 옵션은 이번 액션에 포함하지 않았습니다.
+
+대화 도구에서는 장소 검색 → 후보 확인 → 좌표 선택 → 경로 조회 순서로 호출하면 됩니다.
+"집에서"라는 요청에는 도구 연결 단계에서 HA 집 좌표를 넣고, "현재 위치에서"라는
+요청에는 사용자가 선택한 위치 출처의 좌표를 넣어야 합니다. 이 액션은 집이나
+휴대전화 위치를 자동으로 선택하지 않습니다.
+
 ## 기본 구조
 
 실행에 필요한 파일은 `custom_components/kakaomap/`에 배치합니다.
@@ -67,7 +107,8 @@ HACS 표시 이름과 README 렌더링을 설정합니다. 전체 구조는 `tre
 
 ## 이후 확장할 파일
 
-`config_flow.py`와 번역 파일은 API 키 설정을, `api.py`는 검색 요청을 처리합니다.
+`config_flow.py`와 번역 파일은 API 키 설정을, `api.py`는 검색과 경로 HTTP 요청을 처리합니다.
+`routes.py`는 이동 수단별 API 응답을 공통 경로 요약으로 변환합니다.
 `__init__.py`와 `services.yaml`은 응답 액션을 제공합니다.
 `tests/`는 HTTP 응답 처리, 실제 HA 액션 호출, 설정과 키 교체를 검증합니다.
 
@@ -81,7 +122,7 @@ git diff --check
 ```
 
 테스트는 가짜 인증 정보와 로컬 HTTP 서버를 사용하며 실제 카카오 API를 호출하지 않습니다.
-실제 키를 사용한 검색, HA 화면 설정 및 대화 에이전트 연동은 별도 검증이 필요합니다.
+실제 키를 사용한 검색·경로 조회, HA 화면 설정 및 대화 에이전트 연동은 별도 검증이 필요합니다.
 
 ## 개발 관리
 
