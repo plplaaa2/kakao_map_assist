@@ -8,11 +8,12 @@ from __future__ import annotations
 import asyncio
 import math
 from typing import Any
+from urllib.parse import quote
 
 from aiohttp import ClientError, ClientSession, ClientTimeout, ContentTypeError
 
-from .const import ADDRESS_URL, API_URL, CATEGORY_CODES, CATEGORY_URL, DEFAULT_LIMIT, REQUEST_TIMEOUT, ROUTE_URLS, SEARCH_RECT
-from .routes import normalize_routes
+from .const import ADDRESS_URL, API_URL, CAR_AVOID, CAR_PRIORITIES, CATEGORY_CODES, CATEGORY_URL, DEFAULT_LIMIT, REQUEST_TIMEOUT, ROUTE_URLS, SEARCH_RECT
+from .routes import normalize_car_routes, normalize_routes
 
 
 class KakaoMapError(Exception):
@@ -220,10 +221,18 @@ class KakaoMapClient:
         self, *, start_latitude: float, start_longitude: float,
         end_latitude: float, end_longitude: float,
         mode: str = "public_transport", start_name: str = "출발", end_name: str = "도착",
+        priority: str = "RECOMMEND", avoid: list[str] | None = None,
     ) -> dict[str, Any]:
         """Get route summaries using WGS84 coordinates; related file: routes.py."""
         if mode not in ROUTE_URLS:
             raise ValueError("Unsupported travel mode.")
+        # Validate driving options before any HTTP call; related file: llm.py.
+        if (priority not in CAR_PRIORITIES or (avoid is not None and (
+            not isinstance(avoid, list) or any(item not in CAR_AVOID for item in avoid)
+        ))):
+            raise ValueError("Invalid driving preferences.")
+        if mode != "car" and (priority != "RECOMMEND" or avoid):
+            raise ValueError("Driving preferences require car mode.")
         for coordinate, bound in (
             (start_latitude, 90), (start_longitude, 180),
             (end_latitude, 90), (end_longitude, 180),
@@ -233,6 +242,26 @@ class KakaoMapClient:
                 raise ValueError("Invalid coordinate.")
         if (start_latitude, start_longitude) == (end_latitude, end_longitude):
             raise ValueError("Origin and destination must differ.")
+        # Use Mobility's separate request/response contract; related file: routes.py.
+        if mode == "car":
+            if not isinstance(start_name, str) or not isinstance(end_name, str):
+                raise ValueError("Point names must be strings.")
+            params = {
+                "origin": f"{start_longitude},{start_latitude}",
+                "destination": f"{end_longitude},{end_latitude}",
+                "priority": priority, "summary": "false", "alternatives": "false",
+            }
+            if avoid:
+                params["avoid"] = "|".join(dict.fromkeys(avoid))
+            payload = await self._async_request(ROUTE_URLS[mode], params)
+            route_url = (
+                f"https://map.kakao.com/link/by/car/{quote(start_name, safe='')},{start_latitude},{start_longitude}"
+                f"/{quote(end_name, safe='')},{end_latitude},{end_longitude}"
+            )
+            try:
+                return normalize_car_routes(payload, route_url, priority, avoid or [])
+            except (KeyError, TypeError, ValueError, OverflowError):
+                raise KakaoMapResponseError from None
         payload = await self._async_request(ROUTE_URLS[mode], {
             "start_x": start_longitude, "start_y": start_latitude,
             "end_x": end_longitude, "end_y": end_latitude,

@@ -13,7 +13,11 @@ CATEGORY_CODES = (
 )
 CATEGORY_URL = "https://dapi.kakao.com/v2/local/search/category.json"
 SERVICE_GET_ROUTE = "get_route"
+# Driving preferences are opt-in; related files: api.py, llm.py, services.yaml.
+CAR_PRIORITIES = ("RECOMMEND", "TIME", "DISTANCE")
+CAR_AVOID = ("toll", "motorway", "ferries", "schoolzone", "uturn")
 ROUTE_URLS = {
+    "car": "https://apis-navi.kakaomobility.com/v1/directions",
     "public_transport": "https://dapi.kakao.com/v2/routing/publictraffic",
     "walk": "https://dapi.kakao.com/v2/routing/walk",
     "bicycle": "https://dapi.kakao.com/v2/routing/bicycle",

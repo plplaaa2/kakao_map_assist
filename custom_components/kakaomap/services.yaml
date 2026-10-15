@@ -111,7 +111,7 @@ search_nearby:
           mode: box
 get_route:
   name: 경로 조회
-  description: 출발·도착 좌표로 대중교통, 도보 또는 자전거 경로를 조회하고 시간·거리·안내를 반환합니다.
+  description: 출발·도착 좌표로 대중교통, 도보, 자전거 또는 자동차 경로를 조회합니다. 기본은 대중교통이며 자동차는 추천 경로가 기본입니다.
   fields:
     start_latitude:
       name: 출발지 위도
@@ -161,6 +161,8 @@ get_route:
               value: walk
             - label: 자전거
               value: bicycle
+            - label: 자동차
+              value: car
     start_name:
       name: 출발지 이름
       default: 출발
@@ -171,3 +173,25 @@ get_route:
       default: 도착
       selector:
         text:
+    priority:
+      name: 자동차 경로 기준
+      description: 자동차에서만 사용합니다. 별도 요청이 없으면 추천 경로입니다.
+      default: RECOMMEND
+      selector:
+        select:
+          options:
+            - {label: 추천, value: RECOMMEND}
+            - {label: 최단 시간, value: TIME}
+            - {label: 최단 거리, value: DISTANCE}
+    avoid:
+      name: 자동차 회피 옵션
+      description: 자동차에서만 사용합니다. 지정하지 않으면 회피 조건을 추가하지 않습니다.
+      selector:
+        select:
+          multiple: true
+          options:
+            - {label: 유료도로, value: toll}
+            - {label: 자동차 전용도로, value: motorway}
+            - {label: 페리, value: ferries}
+            - {label: 어린이 보호구역, value: schoolzone}
+            - {label: 유턴, value: uturn}

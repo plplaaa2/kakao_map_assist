@@ -172,11 +172,11 @@ Assist에서는 "집 근처 약국 찾아줘"라고 하면 집 위치 도구로 
 `kakaomap.get_route`는 출발·도착 위도/경도 네 항목을 필수로 받습니다.
 좌표는 WGS84 기준이며, 장소 검색 결과의 `latitude`와 `longitude`를 사용할 수 있습니다.
 이동 수단 `mode`는 `public_transport`(기본값, 대중교통), `walk`(도보),
-`bicycle`(자전거)입니다. 출발·도착 이름은 선택 입력이며 각각 `출발`, `도착`이 기본값입니다.
+`bicycle`(자전거), `car`(자동차)입니다. 출발·도착 이름은 선택 입력이며 각각 `출발`, `도착`이 기본값입니다.
 
 **이동 수단을 지정하지 않으면 대중교통으로 조회합니다.** 아래 예시에서도
 `mode`를 생략해 기본값을 사용합니다. 도보는 `mode: walk`, 자전거는
-`mode: bicycle`을 명시했을 때 조회합니다.
+`mode: bicycle`, 자동차는 `mode: car`를 명시했을 때 조회합니다.
 
 ```yaml
 action: kakaomap.get_route
@@ -202,7 +202,50 @@ response_variable: route_result
 경로가 없으면 `routes: []`를 반환합니다. 동일 출발·도착지, 주변 도로/정류장을
 찾을 수 없는 경우, 너무 먼 경로 및 탐색 실패는 액션 오류로 표시합니다.
 소요 시간은 경로 조회 결과이며 실시간 버스 도착 시간 정보가 아닙니다.
-자동차 경로, 경유지 지정 및 경로 탐색 옵션은 이번 액션에 포함하지 않았습니다.
+경유지 지정은 지원하지 않습니다. 자동차 경로 기준·회피 옵션은 아래와 같이 지정할 수 있습니다.
+
+### 자동차 경로
+
+자동차는 카카오모빌리티의 일반 자동차 길찾기 API를 현재 설정된 REST API 키로
+호출합니다. 기본 경로 기준은 추천(`priority: RECOMMEND`)이며, 별도 요청이 없으면
+회피 조건을 추가하지 않습니다. 한 번의 요청으로 경로를 조회하며 대안 경로를 추가 요청하지 않습니다.
+
+```yaml
+action: kakaomap.get_route
+data:
+  start_latitude: 37.3947766
+  start_longitude: 127.1111967
+  end_latitude: 37.4199324
+  end_longitude: 127.1262904
+  mode: car
+response_variable: car_result
+```
+
+| 입력 | 값 | 용도 |
+| --- | --- | --- |
+| `priority` | `RECOMMEND` | 추천 경로, 기본값 |
+| `priority` | `TIME` | 최단 시간 요청 |
+| `priority` | `DISTANCE` | 최단 거리 요청 |
+| `avoid` | `[toll]` | 유료도로 회피 |
+| `avoid` | `[motorway]` | 자동차 전용도로 회피 |
+| `avoid` | `[ferries]` | 페리 회피 |
+| `avoid` | `[schoolzone]` | 어린이 보호구역 회피 |
+| `avoid` | `[uturn]` | 유턴 회피 |
+
+회피 옵션은 목록으로 여러 개 지정할 수 있습니다. 예: `avoid: [toll, ferries]`.
+기본값 이외의 경로 기준이나 회피 옵션을 대중교통·도보·자전거에 지정하면 입력 오류입니다.
+큰길 우선 옵션은 지원하지 않습니다.
+
+자동차도 기존 `routes` 목록과 시간·거리·`steps` 안내 형식을 사용합니다.
+환승 `transfers`와 대중교통 요금 `fare`는 `null`이며, 통행료는 각 경로의
+`toll_fare`(원)로 따로 반환합니다. 택시 예상요금과 연료비는 제공하지 않습니다.
+상위 응답의 `priority`·`avoid`는 요청 조건, 각 경로의 `priority`는 API 응답의 기준입니다.
+유료도로 회피를 요청해도 통행료 0원을 임의로 보장하지 않고 실제 `toll_fare`를 안내합니다.
+자동차 탐색 실패는 액션 오류이며 대중교통으로 자동 전환하지 않습니다.
+
+자동차 `route_url`은 출발·도착지를 지정한 카카오맵 링크입니다. 경로 기준·회피 옵션이나
+API에서 계산된 특정 경로까지 보존하지 않으므로 링크에서 다시 조회한 결과는 다를 수 있습니다.
+실제 호출 가능 여부와 무료 쿼터·추가 사용 조건은 사용하는 앱 설정 및 공식 안내를 확인하세요.
 
 대화 도구에서는 장소 검색 → 후보 확인 → 좌표 선택 → 경로 조회 순서로 호출하면 됩니다.
 "집에서"라는 요청에는 에이전트가 집 위치 도구로 HA 집 좌표를 조회합니다.
@@ -218,7 +261,9 @@ KakaoMap 제공자는 다음 지침을 대화 에이전트에 전달합니다. �
 - 이동 수단을 말하지 않으면 대중교통으로 조회합니다. 매번 이동 수단을 묻지 않습니다.
 - 사용자가 "걸어서", "도보로"라고 요청한 경우에만 도보로 조회합니다.
 - 사용자가 "자전거로"라고 요청한 경우에만 자전거로 조회합니다.
-- 대중교통 결과가 없더라도 도보·자전거로 자동 전환하지 않습니다.
+- 사용자가 "차로", "자동차로"라고 요청한 경우에만 자동차로 조회합니다.
+- 자동차는 추천 경로가 기본이며, 최단 시간·최단 거리·회피 옵션은 요청할 때만 적용합니다.
+- 대중교통 결과가 없더라도 도보·자전거·자동차로 자동 전환하지 않습니다.
 - 목적지 후보가 여러 개면 장소를 확인한 뒤 경로를 조회합니다.
 
 | 요청 예시 | 사용할 이동 수단 |
@@ -226,6 +271,9 @@ KakaoMap 제공자는 다음 지침을 대화 에이전트에 전달합니다. �
 | "집에서 서울역까지 얼마나 걸려?" | 대중교통 `public_transport` |
 | "거기까지 걸어서 가면?" | 도보 `walk` |
 | "자전거로 가는 길 알려줘" | 자전거 `bicycle` |
+| "차로 가는 길 알려줘" | 자동차 `car`, 추천 경로 |
+| "차로 가장 빨리 가는 길" | 자동차 `car`, `priority: TIME` |
+| "차로 통행료 피해서 가는 길" | 자동차 `car`, `avoid: [toll]` |
 
 대화에서는 소요 시간, 대중교통 환승과 요금, 주요 이동 안내를 요약하도록
 지침을 전달합니다. 장소·길찾기 링크는 대화 답변에 붙이거나 읽지 않습니다.
@@ -287,6 +335,8 @@ HACS 배포 전에는 실제 메타데이터, 공개 GitHub 저장소, 설명/�
 
 - [카카오맵 API 소개와 활성화](https://developers.kakao.com/docs/ko/kakaomap/common#rest-api)
 - [카카오맵 REST API](https://developers.kakao.com/docs/ko/kakaomap/rest-api)
+- [카카오모빌리티 자동차 길찾기 API](https://developers.kakaomobility.com/guide/navi-api/directions)
+- [카카오 지도 길찾기 URL](https://apis.map.kakao.com/web/guide/#routeurl)
 - [Home Assistant 응답 액션](https://developers.home-assistant.io/docs/dev_101_services/)
 - [Home Assistant LLM 도구 및 API 등록](https://developers.home-assistant.io/docs/core/llm/)
 - [HACS 통합 요구사항](https://www.hacs.dev/docs/publish/integration/)

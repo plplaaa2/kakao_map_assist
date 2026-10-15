@@ -19,7 +19,7 @@ from .api import (
     KakaoMapPermissionError, KakaoMapRateLimitError, KakaoMapResponseError, KakaoMapRouteError,
 )
 from .const import (
-    CATEGORY_CODES, DEFAULT_LIMIT, DOMAIN, ROUTE_URLS, SERVICE_GET_ROUTE,
+    CAR_AVOID, CAR_PRIORITIES, CATEGORY_CODES, DEFAULT_LIMIT, DOMAIN, ROUTE_URLS, SERVICE_GET_ROUTE,
     SERVICE_GEOCODE_ADDRESS, SERVICE_SEARCH_NEARBY, SERVICE_SEARCH_PLACES,
 )
 from .notifications import async_notify_auth_failure
@@ -58,6 +58,9 @@ ROUTE_SCHEMA = vol.Schema({
     vol.Optional("mode", default="public_transport"): vol.In(ROUTE_URLS),
     vol.Optional("start_name", default="출발"): cv.string,
     vol.Optional("end_name", default="도착"): cv.string,
+    # Driving preferences; related files: api.py, services.yaml, llm.py.
+    vol.Optional("priority", default="RECOMMEND"): vol.In(CAR_PRIORITIES),
+    vol.Optional("avoid"): [vol.In(CAR_AVOID)],
 })
 
 
@@ -110,7 +113,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: KakaoMapConfigEntry) -> 
         try:
             return await entry.runtime_data.async_get_route(**call.data)
         except ValueError:
-            raise ServiceValidationError("출발·도착 위도와 경도 및 이동 수단을 확인하세요. 출발·도착지는 서로 달라야 합니다.") from None
+            raise ServiceValidationError("출발·도착 좌표와 이동 수단을 확인하세요. 출발·도착지는 서로 달라야 하며 경로 기준·회피 옵션은 자동차에서만 지정할 수 있습니다.") from None
         except KakaoMapAuthError:
             # Reuse the same alert ID for route failures; see notifications.py.
             async_notify_auth_failure(hass, entry.entry_id)

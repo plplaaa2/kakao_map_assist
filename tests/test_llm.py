@@ -58,7 +58,7 @@ async def test_search_tool_returns_action_response_and_context(hass, entry, monk
     entry.runtime_data.async_search.assert_awaited_once_with(name="서울역", address="", limit=5)
 
 
-@pytest.mark.parametrize("mode", [None, "walk", "bicycle"])
+@pytest.mark.parametrize("mode", [None, "walk", "bicycle", "car"])
 async def test_route_tool_defaults_to_transit(hass, entry, monkeypatch, mode):
     instance = await setup_provider(hass, entry, monkeypatch)
     expected = {"count": 0, "routes": []}
@@ -92,7 +92,7 @@ async def test_home_tool_and_fresh_location(hass, entry, monkeypatch):
 @pytest.mark.parametrize("name,args", [
     ("kakaomap__get_route", {}),
     ("kakaomap__get_route", {"start_latitude": 37.5, "start_longitude": 127.0,
-                            "end_latitude": 37.6, "end_longitude": 127.1, "mode": "car"}),
+                            "end_latitude": 37.6, "end_longitude": 127.1, "mode": "airplane"}),
     ("kakaomap__search_places", {"name": "서울역", "api_key": "untrusted-extra-field"}),
     ("kakaomap__get_home_location", {"extra": True}),
 ])

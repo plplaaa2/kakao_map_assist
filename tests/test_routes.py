@@ -155,7 +155,7 @@ async def test_invalid_summary_rejected(route_server, field, value):
 @pytest.mark.parametrize("overrides", [
     {"start_latitude": float("nan")}, {"end_longitude": float("inf")},
     {"start_latitude": 91}, {"end_longitude": 181}, {"start_latitude": True},
-    {"mode": "car"}, {"end_latitude": COORDINATES["start_latitude"],
+    {"mode": "airplane"}, {"end_latitude": COORDINATES["start_latitude"],
                          "end_longitude": COORDINATES["start_longitude"]},
 ])
 async def test_invalid_route_inputs_do_not_call_api(route_server, overrides):
@@ -191,7 +191,7 @@ async def test_route_action_http_response_and_cleanup(route_server, hass, entry,
     assert not hass.services.has_service("kakaomap", "search_places")
 
 
-@pytest.mark.parametrize("data", [{}, {**COORDINATES, "mode": "car"},
+@pytest.mark.parametrize("data", [{}, {**COORDINATES, "mode": "airplane"},
                                   {**COORDINATES, "start_latitude": 91},
                                   {**COORDINATES, "start_latitude": float("nan")},
                                   {**COORDINATES, "end_latitude": COORDINATES["start_latitude"],

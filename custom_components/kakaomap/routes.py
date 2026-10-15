@@ -5,6 +5,8 @@ Exclude route geometry to keep action responses readable and compact.
 
 from typing import Any
 
+from .const import CAR_PRIORITIES
+
 
 def _number(value: Any) -> int:
     """Validate nonnegative API durations, distances, fares, and transfers."""
@@ -77,3 +79,45 @@ def normalize_routes(payload: dict[str, Any], mode: str) -> dict[str, Any]:
         summary["steps"] = [_step(step, mode) for step in steps]
         routes.append(summary)
     return {"mode": mode, "count": len(routes), "routes": routes, "route_url": route_url}
+
+
+# Mobility driving summaries without road geometry; related files: api.py, services.yaml.
+def normalize_car_routes(
+    payload: dict[str, Any], route_url: str, priority: str, avoid: list[str],
+) -> dict[str, Any]:
+    """Preserve driving units, tolls and guidance without confusing taxi estimates with tolls."""
+    from .api import KakaoMapRouteError
+
+    raw_routes = _list(payload["routes"])
+    if not raw_routes:
+        raise ValueError
+    routes = []
+    for route in raw_routes:
+        code = route["result_code"]
+        if type(code) is not int:
+            raise ValueError
+        if code != 0:
+            raise KakaoMapRouteError("자동차 경로를 찾을 수 없습니다. 출발·도착 위치와 경로 조건을 확인하세요.")
+        summary = route["summary"]
+        duration = _number(summary["duration"])
+        actual_priority = _text(summary["priority"])
+        if actual_priority not in CAR_PRIORITIES:
+            raise ValueError
+        fare = summary["fare"]
+        toll = _number(fare["toll"])
+        steps = []
+        for section in _list(route["sections"]):
+            for guide in _list(section["guides"]):
+                steps.append({
+                    "guidance": _text(guide["guidance"]),
+                    "distance_m": _number(guide["distance"]),
+                    "duration_s": _number(guide["duration"]), "mode": "car",
+                })
+        routes.append({
+            "mode": "car", "distance_m": _number(summary["distance"]),
+            "duration_s": duration, "duration_minutes": round(duration / 60, 1),
+            "transfers": None, "fare": None, "toll_fare": toll,
+            "priority": actual_priority, "route_url": route_url, "steps": steps,
+        })
+    return {"mode": "car", "count": len(routes), "route_url": route_url,
+            "priority": priority, "avoid": list(avoid), "routes": routes}

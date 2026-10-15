@@ -14,7 +14,7 @@ from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import llm
 
 from .const import (
-    CATEGORY_CODES, DEFAULT_LIMIT, DOMAIN, ROUTE_URLS, SERVICE_GET_ROUTE,
+    CAR_AVOID, CAR_PRIORITIES, CATEGORY_CODES, DEFAULT_LIMIT, DOMAIN, ROUTE_URLS, SERVICE_GET_ROUTE,
     SERVICE_GEOCODE_ADDRESS, SERVICE_SEARCH_NEARBY, SERVICE_SEARCH_PLACES,
 )
 
@@ -34,7 +34,15 @@ Use the default 1000 meter radius unless the user specifies another radius; neve
 If place candidates are ambiguous, ask the user to choose the correct place.
 Default to public_transport for routes without asking the user about travel mode.
 Use walk or bicycle only when the user explicitly requests that travel mode.
+Use car only when the user explicitly requests driving or a car route.
+For car routes default priority to RECOMMEND and omit avoid; do not ask preferences each time.
+Only on explicit request use TIME for fastest, DISTANCE for shortest, or avoid options.
+Car avoid options: toll (toll roads), motorway, ferries, schoolzone, uturn.
+There is no big-road preference. Never claim an unsupported preference was applied.
+Report returned toll_fare as tolls, not taxi fare or fuel cost; do not promise zero tolls unless toll_fare is zero.
+Car route links set endpoints only and do not preserve priority or avoid options.
 Do not automatically switch to walking or cycling when public transport has no results.
+Do not automatically switch to driving when public transport has no results.
 For 'home' use kakaomap__get_home_location. Home is not the user's current location.
 If a current location or origin is unknown, ask for the origin rather than inventing it.
 Users do not need to type coordinates: obtain them from search results or the home tool.
@@ -145,7 +153,7 @@ class GetRouteTool(ResponseActionTool):
 
     name = "kakaomap__get_route"
     title = "카카오맵 경로 조회"
-    description = "Get a route using coordinates obtained from place search, address geocoding or home location. Defaults to public transport. Only use walk or bicycle when explicitly requested by the user."
+    description = "Get a route using coordinates obtained from place search, address geocoding or home location. Defaults to public transport. Only use walk, bicycle or car when explicitly requested. Car defaults to RECOMMEND. Only upon request use TIME (fastest), DISTANCE (shortest), or avoid toll/motorway/ferries/schoolzone/uturn. Driving preferences require car mode."
     service = SERVICE_GET_ROUTE
     parameters = vol.Schema({
         vol.Required("start_latitude"): vol.All(float, vol.Range(min=-90, max=90)),
@@ -155,6 +163,9 @@ class GetRouteTool(ResponseActionTool):
         vol.Optional("mode", default="public_transport"): vol.In(tuple(ROUTE_URLS)),
         vol.Optional("start_name", default="출발"): str,
         vol.Optional("end_name", default="도착"): str,
+        # Car-only options; related files: api.py, __init__.py, services.yaml.
+        vol.Optional("priority", default="RECOMMEND"): vol.In(CAR_PRIORITIES),
+        vol.Optional("avoid"): [vol.In(CAR_AVOID)],
     })
 
 
