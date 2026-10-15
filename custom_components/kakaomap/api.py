@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 from aiohttp import ClientError, ClientSession, ClientTimeout, ContentTypeError
 
-from .const import ADDRESS_URL, API_URL, CAR_AVOID, CAR_PRIORITIES, CATEGORY_CODES, CATEGORY_URL, DEFAULT_LIMIT, REQUEST_TIMEOUT, ROUTE_URLS, SEARCH_RECT
+from .const import ADDRESS_URL, API_URL, CAR_AVOID, CAR_PRIORITIES, CATEGORY_CODES, CATEGORY_URL, DEFAULT_LIMIT, FUTURE_ROUTE_URL, REQUEST_TIMEOUT, ROUTE_URLS, SEARCH_RECT
 from .routes import add_arrival_times, normalize_car_routes, normalize_routes
 
 
@@ -227,6 +227,7 @@ class KakaoMapClient:
         mode: str = "public_transport", start_name: str = "출발", end_name: str = "도착",
         priority: str = "RECOMMEND", avoid: list[str] | None = None,
         waypoints: list[dict[str, Any]] | None = None, alternatives: bool = False,
+        departure_time: str | None = None,
     ) -> dict[str, Any]:
         """Get route summaries using WGS84 coordinates; related file: routes.py."""
         if mode not in ROUTE_URLS:
@@ -267,7 +268,25 @@ class KakaoMapClient:
         if (start_latitude, start_longitude) == (end_latitude, end_longitude):
             raise ValueError("Origin and destination must differ.")
         # Estimate from one request-start instant, before waiting for HTTP; see routes.py.
-        departure_time = datetime.now(UTC)
+        requested_at = datetime.now(UTC)
+        effective_departure = requested_at
+        future_departure = None
+        # Require an explicit UTC offset and exact minutes; related files: llm.py, services.yaml.
+        if departure_time is not None:
+            if mode != "car" or not isinstance(departure_time, str) or not departure_time.strip():
+                raise ValueError("Future departure requires car mode and an offset-aware timestamp.")
+            try:
+                parsed = datetime.fromisoformat(departure_time.strip())
+                if parsed.tzinfo is None or parsed.utcoffset() is None or parsed.second or parsed.microsecond:
+                    raise ValueError
+                effective_departure = parsed.astimezone(UTC)
+                if effective_departure <= requested_at or effective_departure.second or effective_departure.microsecond:
+                    raise ValueError
+                future_departure = effective_departure.astimezone(
+                    ZoneInfo("Asia/Seoul")
+                ).strftime("%Y%m%d%H%M")
+            except (ValueError, OverflowError):
+                raise ValueError("Departure must be a future ISO timestamp with UTC offset, at minute precision.") from None
         # Use Mobility's separate request/response contract; related file: routes.py.
         if mode == "car":
             if not isinstance(start_name, str) or not isinstance(end_name, str):
@@ -283,7 +302,11 @@ class KakaoMapClient:
                 params["waypoints"] = "|".join(
                     f"{point['longitude']},{point['latitude']}" for point in resolved_waypoints
                 )
-            payload = await self._async_request(ROUTE_URLS[mode], params)
+            endpoint = ROUTE_URLS[mode]
+            if departure_time is not None:
+                endpoint = FUTURE_ROUTE_URL
+                params["departure_time"] = future_departure
+            payload = await self._async_request(endpoint, params)
             points = [{"name": start_name, "latitude": start_latitude, "longitude": start_longitude},
                       *resolved_waypoints,
                       {"name": end_name, "latitude": end_latitude, "longitude": end_longitude}]
@@ -294,7 +317,9 @@ class KakaoMapClient:
             try:
                 result = normalize_car_routes(payload, route_url, priority, avoid or [], alternatives)
                 result["waypoints"] = resolved_waypoints
-                return add_arrival_times(result, departure_time, self._time_zone)
+                result["is_future"] = departure_time is not None
+                result["requested_at"] = requested_at.astimezone(self._time_zone).isoformat()
+                return add_arrival_times(result, effective_departure, self._time_zone)
             except (KeyError, TypeError, ValueError, OverflowError):
                 raise KakaoMapResponseError from None
         payload = await self._async_request(ROUTE_URLS[mode], {
@@ -324,7 +349,7 @@ class KakaoMapClient:
         if status != "OK":
             raise KakaoMapResponseError from None
         try:
-            return add_arrival_times(normalize_routes(payload, mode), departure_time, self._time_zone)
+            return add_arrival_times(normalize_routes(payload, mode), effective_departure, self._time_zone)
         except (KeyError, TypeError, ValueError, OverflowError):
             raise KakaoMapResponseError from None
 

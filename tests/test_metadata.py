@@ -22,7 +22,7 @@ def test_ui_metadata_and_translations():
     }
     assert set(services["get_route"]["fields"]) == {
         "start_latitude", "start_longitude", "end_latitude", "end_longitude",
-        "mode", "start_name", "end_name", "priority", "avoid", "waypoints", "alternatives",
+        "mode", "start_name", "end_name", "priority", "avoid", "waypoints", "alternatives", "departure_time",
     }
     for service in services.values():
         for field in service["fields"].values():

@@ -13,6 +13,8 @@ CATEGORY_CODES = (
 )
 CATEGORY_URL = "https://dapi.kakao.com/v2/local/search/category.json"
 SERVICE_GET_ROUTE = "get_route"
+# Future-driving endpoint uses a minute-resolution Korean local departure; related file: api.py.
+FUTURE_ROUTE_URL = "https://apis-navi.kakaomobility.com/v1/future/directions"
 # Driving preferences are opt-in; related files: api.py, llm.py, services.yaml.
 CAR_PRIORITIES = ("RECOMMEND", "TIME", "DISTANCE")
 CAR_AVOID = ("toll", "motorway", "ferries", "schoolzone", "uturn")

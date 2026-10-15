@@ -6,6 +6,8 @@ Reuse response actions so authentication and routing errors have one owner.
 from __future__ import annotations
 
 import math
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import probatio as vol
 
@@ -32,7 +34,7 @@ Nearby: resolve the center first; exactly one query or category; default radius 
 Distances are center distances, not walking distances.
 
 Routes: Default to public_transport without asking. Use walk, bicycle or car only when the user explicitly requests it.
-Do not automatically switch modes after failure or to support car-only options.
+Do not automatically switch modes after failure, replace future departure with now, or switch to support car-only options.
 Car: default priority to RECOMMEND, no avoid/waypoints, alternatives=false; do not ask preferences each time.
 Only on explicit request use TIME (fastest), DISTANCE (shortest), avoid options or up to five resolved waypoints in user order.
 Only on a request for other routes or comparison use alternatives=true; compare returned same-condition time/distance/toll/arrival.
@@ -40,13 +42,15 @@ Keep API order: the primary car route is not necessarily fastest or free; negati
 If only one candidate exists, say so; no invented alternatives. No big-road preference.
 
 Answers: briefly give time, estimated arrival, transfers, fare/toll and main guidance; no URLs.
-Use arrival_time in time_zone, assuming departure_time; not guaranteed or future-departure prediction.
+Use arrival_time in time_zone, assuming departure_time; is_future=true means a future driving forecast, never guaranteed.
+Only for explicit future car departure set departure_time (ISO with UTC offset, zero seconds); otherwise omit it.
+Resolve relative dates from current HA time; ask if date/time is ambiguous. No future transit or arrival-deadline reverse search; never silently switch modes.
 Waypoint stopover/dwell time is excluded; mention this when stops exist.
 For the selected transit route, include explicit subway entrance/exit guidance with its station and entry/exit action.
 Never infer exits from stop names, borrow another candidate's exits or invent missing exit numbers.
 Transfer walking is included in totals: never add it again; omit its distance/time unless asked.
 toll_fare is tolls, not taxi/fuel cost; claim zero toll only if returned as zero.
-No real-time vehicle arrivals, opening hours, ratings or reviews. Car links do not preserve options or selected candidates.
+No real-time vehicle arrivals, opening hours, ratings or reviews. Car links do not preserve options, departure time or selected candidates.
 """
 
 
@@ -56,7 +60,10 @@ class KakaoMapAPI(llm.API):
     async def async_get_api_instance(self, llm_context: llm.LLMContext) -> llm.APIInstance:
         """Build the tool collection and conversation instructions."""
         return llm.APIInstance(
-            api=self, api_prompt=API_PROMPT, llm_context=llm_context,
+            api=self, api_prompt=(
+                f"{API_PROMPT}\nCurrent HA time: "
+                f"{datetime.now(ZoneInfo(self.hass.config.time_zone)).isoformat(timespec='minutes')}"
+            ), llm_context=llm_context,
             tools=[SearchPlacesTool(), GeocodeAddressTool(), SearchNearbyTool(), GetRouteTool(),
                    HomeLocationTool(), CurrentLocationTool()],
         )
@@ -146,7 +153,7 @@ class GetRouteTool(ResponseActionTool):
 
     name = "kakaomap__get_route"
     title = "카카오맵 경로 조회"
-    description = "Route between resolved coordinates. Car-only options: priority RECOMMEND/TIME/DISTANCE; avoid toll/motorway/ferries/schoolzone/uturn; up to five ordered waypoints; alternatives for comparison. Returns duration, ETA, guidance and fare/toll."
+    description = "Route between resolved coordinates. Car-only: priority RECOMMEND/TIME/DISTANCE; avoid toll/motorway/ferries/schoolzone/uturn; up to five ordered waypoints; alternatives; optional future departure_time as ISO timestamp with UTC offset and zero seconds. Returns duration, ETA, guidance and fare/toll."
     service = SERVICE_GET_ROUTE
     parameters = vol.Schema({
         vol.Required("start_latitude"): vol.All(float, vol.Range(min=-90, max=90)),
@@ -165,6 +172,7 @@ class GetRouteTool(ResponseActionTool):
             vol.Optional("name"): str,
         }], vol.Length(max=5)),
         vol.Optional("alternatives", default=False): bool,
+        vol.Optional("departure_time"): str,
     })
 
 

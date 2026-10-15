@@ -68,6 +68,8 @@ ROUTE_SCHEMA = vol.Schema({
         vol.Optional("name"): cv.string,
     }], vol.Length(max=5)),
     vol.Optional("alternatives", default=False): bool,
+    # Explicit future departure; related files: api.py, llm.py, services.yaml.
+    vol.Optional("departure_time"): str,
 })
 
 
@@ -122,7 +124,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: KakaoMapConfigEntry) -> 
         try:
             return await entry.runtime_data.async_get_route(**call.data)
         except ValueError:
-            raise ServiceValidationError("출발·도착 좌표와 이동 수단을 확인하세요. 출발·도착지는 서로 달라야 합니다. 경로 기준·회피·경유지·대안 경로는 자동차에서만 지원하며 경유지는 최대 5개입니다.") from None
+            raise ServiceValidationError("출발·도착 좌표와 이동 수단을 확인하세요. 출발·도착지는 서로 달라야 합니다. 자동차 전용 옵션과 경유지(최대 5개)를 확인하세요. 출발 시각은 UTC 오프셋을 포함한 미래 ISO 시각이며 초는 0이어야 합니다.") from None
         except KakaoMapAuthError:
             # Reuse the same alert ID for route failures; see notifications.py.
             async_notify_auth_failure(hass, entry.entry_id)

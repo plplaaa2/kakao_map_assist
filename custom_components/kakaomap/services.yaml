@@ -210,3 +210,9 @@ get_route:
       default: false
       selector:
         boolean:
+    departure_time:
+      name: 자동차 미래 출발 시각
+      description: 생략하면 지금 출발합니다. UTC 오프셋을 포함한 ISO 8601 미래 시각을 입력하세요. 분 단위이며 초는 0이어야 합니다. 도착 희망 시각이 아닙니다.
+      example: '2030-01-01T08:00:00+09:00'
+      selector:
+        text:
