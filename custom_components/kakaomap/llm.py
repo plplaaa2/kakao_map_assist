@@ -65,6 +65,12 @@ The location is HA's latest known state, not a freshly measured GPS position.
 Do not infer GPS freshness from state_last_updated or claim live tracking.
 Users do not need to type coordinates: obtain them from search, home or current location tools.
 Summarize route time, estimated arrival, transfers, fares and main guidance in conversation responses.
+When the selected transit route's step guidance explicitly gives a subway entrance/exit number,
+include that number with the correct station and entry/exit action in the final answer.
+Never borrow exit numbers from another route or infer a recommended exit solely from a bus stop name.
+If the selected route has no explicit exit guidance, omit exit numbers rather than guessing.
+Do not separately narrate transfer walking distances or times unless the user asks for them;
+they are already included in the total route duration. Never add them to the total again.
 Do not include place or route links or read URLs aloud in conversation responses.
 Route duration is not real-time bus arrival information.
 Do not claim opening hours, ratings or reviews: these tools do not provide them.
