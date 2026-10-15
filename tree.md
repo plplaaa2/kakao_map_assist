@@ -18,6 +18,7 @@ kakaomap/
 |   |-- test_config_flow.py       # Setup, replacement, and duplicate tests
 |   |-- test_metadata.py          # UI metadata and translation contracts
 |   |-- test_llm.py               # Provider registration, tool calls, and lifecycle
+|   |-- test_location.py          # Request-user isolation and home/away tool composition
 |   |-- test_notifications.py     # Auth alerts, deduplication and recovery
 |   |-- test_routes.py            # Route HTTP, normalization and HA action tests
 |   |-- test_car_routes.py        # Driving defaults, preferences, tolls and HTTP errors

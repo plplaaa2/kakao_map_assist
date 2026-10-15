@@ -12,6 +12,7 @@ import probatio as vol
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import llm
+from homeassistant.const import STATE_HOME, STATE_UNAVAILABLE, STATE_UNKNOWN
 
 from .const import (
     CAR_AVOID, CAR_PRIORITIES, CATEGORY_CODES, DEFAULT_LIMIT, DOMAIN, ROUTE_URLS, SERVICE_GET_ROUTE,
@@ -44,8 +45,14 @@ Car route links set endpoints only and do not preserve priority or avoid options
 Do not automatically switch to walking or cycling when public transport has no results.
 Do not automatically switch to driving when public transport has no results.
 For 'home' use kakaomap__get_home_location. Home is not the user's current location.
-If a current location or origin is unknown, ask for the origin rather than inventing it.
-Users do not need to type coordinates: obtain them from search results or the home tool.
+For 'here', 'near me', current location, or a route without an explicit origin,
+call kakaomap__get_current_location to resolve the requesting user's location.
+When that person's state is home, the tool returns configured home coordinates.
+Use only the requesting user's linked person, never choose another household member.
+If current location lookup fails, ask for a reference location; never assume home.
+The location is HA's latest known state, not a freshly measured GPS position.
+Do not infer GPS freshness from state_last_updated or claim live tracking.
+Users do not need to type coordinates: obtain them from search, home or current location tools.
 Summarize route time, transfers, fares and main guidance in conversation responses.
 Do not include place or route links or read URLs aloud in conversation responses.
 Route duration is not real-time bus arrival information.
@@ -61,7 +68,8 @@ class KakaoMapAPI(llm.API):
         """Build the tool collection and conversation instructions."""
         return llm.APIInstance(
             api=self, api_prompt=API_PROMPT, llm_context=llm_context,
-            tools=[SearchPlacesTool(), GeocodeAddressTool(), SearchNearbyTool(), GetRouteTool(), HomeLocationTool()],
+            tools=[SearchPlacesTool(), GeocodeAddressTool(), SearchNearbyTool(), GetRouteTool(),
+                   HomeLocationTool(), CurrentLocationTool()],
         )
 
 
@@ -130,7 +138,7 @@ class SearchNearbyTool(ResponseActionTool):
     title = "카카오맵 주변 장소 검색"
     description = (
         "Search nearby Korean places ordered by distance. Resolve center coordinates "
-        "from home, place search or address geocoding first; never assume a current phone location. "
+        "from home, current user location, place search or address geocoding first; never invent a location. "
         "Provide exactly one query or category. Category codes: MT1 supermarket, "
         "CS2 convenience store, PS3 daycare, SC4 school, AC5 academy, PK6 parking, "
         "OL7 fuel/charging, SW8 subway, BK9 bank, CT1 culture, AG2 real estate, "
@@ -153,7 +161,7 @@ class GetRouteTool(ResponseActionTool):
 
     name = "kakaomap__get_route"
     title = "카카오맵 경로 조회"
-    description = "Get a route using coordinates obtained from place search, address geocoding or home location. Defaults to public transport. Only use walk, bicycle or car when explicitly requested. Car defaults to RECOMMEND. Only upon request use TIME (fastest), DISTANCE (shortest), or avoid toll/motorway/ferries/schoolzone/uturn. Driving preferences require car mode."
+    description = "Get a route using coordinates from place search, address geocoding, home or current user location. For an unspecified origin first use kakaomap__get_current_location. Defaults to public transport. Only use walk, bicycle or car when explicitly requested. Car defaults to RECOMMEND. Only upon request use TIME (fastest), DISTANCE (shortest), or avoid toll/motorway/ferries/schoolzone/uturn. Driving preferences require car mode."
     service = SERVICE_GET_ROUTE
     parameters = vol.Schema({
         vol.Required("start_latitude"): vol.All(float, vol.Range(min=-90, max=90)),
@@ -194,6 +202,59 @@ class HomeLocationTool(llm.Tool):
                 or not -90 <= latitude <= 90 or not -180 <= longitude <= 180):
             raise HomeAssistantError("Home Assistant의 집 위치 설정을 확인하세요.")
         return llm.ToolResult(data={"name": "집", "latitude": latitude, "longitude": longitude})
+
+
+# Request-scoped location lookup; related files: README.md, tests/test_location.py.
+class CurrentLocationTool(llm.Tool):
+    """Resolve only the authenticated conversation user's linked HA person."""
+
+    name = "kakaomap__get_current_location"
+    title = "내 현재 위치 조회"
+    description = (
+        "Get the requesting logged-in user's latest known HA location for here/near me "
+        "or an unspecified route origin. At home returns configured home coordinates; "
+        "otherwise returns that user's linked person coordinates. If unavailable, "
+        "ask the user for a reference location. Never select a different person. "
+        "state_last_updated is an HA state timestamp, not GPS measurement freshness."
+    )
+    integration = DOMAIN
+    annotations = llm.ToolAnnotations(
+        read_only=True, destructive=False, idempotent=True, open_world=False,
+    )
+    parameters = vol.Schema({})
+
+    async def async_call(
+        self, hass: HomeAssistant, tool_input: llm.ToolInput, llm_context: llm.LLMContext
+    ) -> llm.ToolResult:
+        """Match context user_id internally; callers cannot supply a person or user ID."""
+        try:
+            self.parameters(tool_input.tool_args)
+        except vol.Invalid:
+            raise ServiceValidationError("내 현재 위치 조회 도구는 입력 항목이 없습니다.") from None
+        user_id = llm_context.context.user_id
+        if not user_id:
+            raise HomeAssistantError("대화의 로그인 사용자를 확인할 수 없습니다. 기준 위치를 알려주세요.")
+        people = [state for state in hass.states.async_all("person")
+                  if state.attributes.get("user_id") == user_id]
+        if len(people) != 1:
+            raise HomeAssistantError("로그인 사용자와 연결된 사람을 확인할 수 없습니다. 기준 위치를 알려주세요.")
+        person = people[0]
+        if person.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+            raise HomeAssistantError("현재 위치를 확인할 수 없습니다. 기준 위치를 알려주세요.")
+        at_home = person.state == STATE_HOME
+        latitude, longitude = (
+            (hass.config.latitude, hass.config.longitude) if at_home else
+            (person.attributes.get("latitude"), person.attributes.get("longitude"))
+        )
+        for coordinate, bound in ((latitude, 90), (longitude, 180)):
+            if (isinstance(coordinate, bool) or not isinstance(coordinate, (int, float))
+                    or not math.isfinite(coordinate) or not -bound <= coordinate <= bound):
+                raise HomeAssistantError("현재 위치 좌표를 사용할 수 없습니다. 기준 위치를 알려주세요.")
+        return llm.ToolResult(data={
+            "name": "집" if at_home else "현재 위치", "latitude": latitude, "longitude": longitude,
+            "at_home": at_home, "source": "home" if at_home else "person",
+            "state_last_updated": person.last_updated.isoformat(),
+        })
 
 
 @callback

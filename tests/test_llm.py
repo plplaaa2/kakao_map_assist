@@ -32,6 +32,7 @@ async def test_provider_list_tools_and_schemas(hass, entry, monkeypatch):
     assert {tool.name for tool in instance.tools} == {
         "kakaomap__search_places", "kakaomap__search_nearby",
         "kakaomap__geocode_address",
+        "kakaomap__get_current_location",
         "kakaomap__get_route", "kakaomap__get_home_location"
     }
     for tool in instance.tools:
