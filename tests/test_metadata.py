@@ -16,6 +16,9 @@ def test_ui_metadata_and_translations():
     assert manifest["config_flow"] is True
     services = yaml.safe_load((COMPONENT / "services.yaml").read_text(encoding="utf-8"))
     assert set(services["search_places"]["fields"]) == {"name", "address", "limit"}
+    assert set(services["search_nearby"]["fields"]) == {
+        "latitude", "longitude", "query", "category", "radius", "limit",
+    }
     assert set(services["get_route"]["fields"]) == {
         "start_latitude", "start_longitude", "end_latitude", "end_longitude",
         "mode", "start_name", "end_name",

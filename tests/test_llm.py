@@ -30,7 +30,8 @@ async def test_provider_list_tools_and_schemas(hass, entry, monkeypatch):
         (f"kakaomap-{entry.entry_id}", "KakaoMap")
     ]
     assert {tool.name for tool in instance.tools} == {
-        "kakaomap__search_places", "kakaomap__get_route", "kakaomap__get_home_location"
+        "kakaomap__search_places", "kakaomap__search_nearby",
+        "kakaomap__get_route", "kakaomap__get_home_location"
     }
     for tool in instance.tools:
         assert tool.integration == "kakaomap"

@@ -23,6 +23,74 @@ search_places:
           min: 1
           max: 15
           mode: box
+search_nearby:
+  name: 주변 장소 검색
+  description: 중심 좌표의 반경 안에서 가까운 순으로 검색합니다. 키워드 또는 카테고리 하나만 입력하세요. 거리는 도보 이동 거리가 아닙니다.
+  fields:
+    latitude:
+      name: 중심 위도
+      required: true
+      selector:
+        number:
+          min: -90
+          max: 90
+          step: any
+          mode: box
+    longitude:
+      name: 중심 경도
+      required: true
+      selector:
+        number:
+          min: -180
+          max: 180
+          step: any
+          mode: box
+    query:
+      name: 검색 키워드
+      description: 카테고리를 지정하지 않을 때 입력합니다.
+      example: 스타벅스
+      selector:
+        text:
+    category:
+      name: 카테고리
+      description: 검색 키워드를 지정하지 않을 때 선택합니다.
+      selector:
+        select:
+          options:
+            - {label: 대형마트, value: MT1}
+            - {label: 편의점, value: CS2}
+            - {label: '어린이집·유치원', value: PS3}
+            - {label: 학교, value: SC4}
+            - {label: 학원, value: AC5}
+            - {label: 주차장, value: PK6}
+            - {label: '주유소·충전소', value: OL7}
+            - {label: 지하철역, value: SW8}
+            - {label: 은행, value: BK9}
+            - {label: 문화시설, value: CT1}
+            - {label: 중개업소, value: AG2}
+            - {label: 공공기관, value: PO3}
+            - {label: 관광명소, value: AT4}
+            - {label: 숙박, value: AD5}
+            - {label: 음식점, value: FD6}
+            - {label: 카페, value: CE7}
+            - {label: 병원, value: HP8}
+            - {label: 약국, value: PM9}
+    radius:
+      name: 검색 반경 (m)
+      default: 1000
+      selector:
+        number:
+          min: 1
+          max: 20000
+          mode: box
+    limit:
+      name: 최대 결과 수
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 15
+          mode: box
 get_route:
   name: 경로 조회
   description: 출발·도착 좌표로 대중교통, 도보 또는 자전거 경로를 조회하고 시간·거리·안내를 반환합니다.

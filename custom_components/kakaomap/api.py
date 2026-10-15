@@ -11,7 +11,7 @@ from typing import Any
 
 from aiohttp import ClientError, ClientSession, ClientTimeout, ContentTypeError
 
-from .const import API_URL, DEFAULT_LIMIT, REQUEST_TIMEOUT, ROUTE_URLS, SEARCH_RECT
+from .const import API_URL, CATEGORY_CODES, CATEGORY_URL, DEFAULT_LIMIT, REQUEST_TIMEOUT, ROUTE_URLS, SEARCH_RECT
 from .routes import normalize_routes
 
 
@@ -86,6 +86,54 @@ class KakaoMapClient:
             "is_end": is_end,
             "places": places,
         }
+
+    # Nearby search with explicit coordinates; related files: __init__.py, llm.py.
+    async def async_search_nearby(
+        self, *, latitude: float, longitude: float, query: str = "",
+        category: str = "", radius: int = 1000, limit: int = DEFAULT_LIMIT,
+    ) -> dict[str, Any]:
+        """Search an official radius scope, returning center distances in meters."""
+        for coordinate, bound in ((latitude, 90), (longitude, 180)):
+            if (isinstance(coordinate, bool) or not isinstance(coordinate, (int, float))
+                    or not math.isfinite(coordinate) or not -bound <= coordinate <= bound):
+                raise ValueError("Invalid center coordinate.")
+        if not isinstance(query, str) or not isinstance(category, str):
+            raise ValueError("Query and category must be strings.")
+        query, category = query.strip(), category.strip()
+        if bool(query) == bool(category) or (category and category not in CATEGORY_CODES):
+            raise ValueError("Provide exactly one keyword or supported category.")
+        if type(radius) is not int or not 1 <= radius <= 20000:
+            raise ValueError("Radius must be an integer between 1 and 20000.")
+        if type(limit) is not int or not 1 <= limit <= 15:
+            raise ValueError("Limit must be an integer between 1 and 15.")
+        params = {"x": longitude, "y": latitude, "radius": radius,
+                  "size": limit, "sort": "distance"}
+        params["query" if query else "category_group_code"] = query or category
+        payload = await self._async_request(API_URL if query else CATEGORY_URL, params)
+        try:
+            documents, meta = payload["documents"], payload["meta"]
+            if not isinstance(documents, list) or not isinstance(meta, dict):
+                raise ValueError
+            total, is_end = meta["total_count"], meta["is_end"]
+            if type(total) is not int or total < 0 or type(is_end) is not bool:
+                raise ValueError
+            places = []
+            for place in documents[:limit]:
+                normalized = self._normalize_place(place)
+                distance = place["distance"]
+                if not isinstance(distance, str) or not distance.isascii() or not distance.isdecimal():
+                    raise ValueError
+                normalized["distance_m"] = int(distance)
+                if normalized["distance_m"] > radius:
+                    raise ValueError
+                places.append(normalized)
+            places.sort(key=lambda place: place["distance_m"])
+        except (KeyError, TypeError, ValueError, OverflowError):
+            raise KakaoMapResponseError from None
+        return {"query": query, "category": category,
+                "center": {"latitude": latitude, "longitude": longitude},
+                "radius_m": radius, "count": len(places), "total_count": total,
+                "is_end": is_end, "places": places}
 
     async def _async_request(self, url: str, params: dict[str, Any]) -> Any:
         """Share safe HTTP handling between search and routing; see routes.py."""

@@ -2,7 +2,7 @@
 
 Home Assistant에서 카카오맵 장소와 경로를 검색하는 커스텀 통합입니다. 버전은 `0.1.0`입니다.
 REST API 키를 설정하고 `kakaomap.search_places`로 장소 정보,
-`kakaomap.get_route`로 이동 경로를 조회합니다. 센서는 생성하지 않으며,
+`kakaomap.search_nearby`로 주변 장소, `kakaomap.get_route`로 이동 경로를 조회합니다. 센서는 생성하지 않으며,
 HA LLM API를 지원하는 대화 에이전트에서 `KakaoMap` 도구 제공자를 선택해 사용할 수 있습니다.
 Windows에서 Home Assistant `2026.10.1`을 기준으로 개발 및 자동 테스트했습니다.
 
@@ -46,6 +46,7 @@ KakaoMap 도구는 다른 API에 자동으로 추가하지 않으며, 제공자�
 | 도구 | 역할 |
 | --- | --- |
 | `kakaomap__search_places` | 이름·주소로 장소 후보와 좌표 조회 |
+| `kakaomap__search_nearby` | 중심 좌표 주변의 키워드·카테고리 검색, 거리순 반환 |
 | `kakaomap__get_route` | 출발·도착 좌표로 경로 조회, 대중교통 기본 |
 | `kakaomap__get_home_location` | HA에 설정된 집 좌표 조회 |
 
@@ -87,6 +88,52 @@ response_variable: search_result
 응답 오류는 HA 액션 오류로 표시합니다. 평점, 리뷰, 영업시간은 제공하지 않습니다.
 
 대화 에이전트에서 사용하려면 위의 Assist 연결 절차에 따라 KakaoMap 제공자를 선택합니다.
+
+## 주변 장소 검색 액션
+
+`kakaomap.search_nearby`는 중심 좌표의 반경 안에서 가까운 순으로 장소를 검색합니다.
+`latitude`, `longitude`는 필수이며 `query`(키워드) 또는 `category`(카테고리 코드)
+중 정확히 하나를 입력합니다. 반경 `radius`는 1~20000m(기본 1000m),
+결과 수 `limit`은 1~15개(기본 5개)입니다. 카카오 공식 키워드·카테고리 API를 사용합니다.
+
+```yaml
+action: kakaomap.search_nearby
+data:
+  latitude: 37.5665
+  longitude: 126.9780
+  category: PM9
+  radius: 1000
+  limit: 5
+response_variable: nearby_result
+```
+
+업체명 검색은 `category` 대신 `query: 스타벅스`를 지정합니다.
+카테고리는 액션 화면에서 한글 이름으로 선택할 수 있습니다.
+
+| 코드 | 업종 | 코드 | 업종 |
+| --- | --- | --- | --- |
+| MT1 | 대형마트 | CS2 | 편의점 |
+| PS3 | 어린이집·유치원 | SC4 | 학교 |
+| AC5 | 학원 | PK6 | 주차장 |
+| OL7 | 주유소·충전소 | SW8 | 지하철역 |
+| BK9 | 은행 | CT1 | 문화시설 |
+| AG2 | 중개업소 | PO3 | 공공기관 |
+| AT4 | 관광명소 | AD5 | 숙박 |
+| FD6 | 음식점 | CE7 | 카페 |
+| HP8 | 병원 | PM9 | 약국 |
+
+응답에는 `query`, `category`, 중심 좌표 `center`, 반경 `radius_m`,
+`count`, `total_count`, `is_end`, `places`가 있습니다. 장소 항목은 기존 검색과
+동일하며 숫자형 `distance_m`이 추가됩니다. 이 값은 중심 좌표 기준 거리이며
+도보 이동 거리나 이동 시간이 아닙니다. 첫 페이지에서 최대 `limit`개만 반환합니다.
+검색 결과가 없으면 빈 목록을 반환하며 반경을 자동으로 넓히지 않습니다.
+인증·권한·한도·연결 오류는 기존 장소 검색과 동일하게 처리합니다.
+
+Assist에서는 "집 근처 약국 찾아줘"라고 하면 집 위치 도구로 중심 좌표를 얻고,
+"서울역 주변 카페"라면 장소 검색으로 서울역을 확인한 뒤 주변 검색을 수행하도록
+지침을 제공합니다. 중심 장소가 모호하면 후보를 확인합니다. 현재 휴대전화 위치는
+자동으로 조회하지 않으며, 위치를 모르면 사용자에게 기준 위치를 확인합니다.
+반경을 말하지 않으면 1km를 사용합니다. 실제 도구 선택은 연결한 LLM에 따라 다릅니다.
 
 ## 경로 조회 액션
 

@@ -13,6 +13,7 @@ kakaomap/
 |-- tests/
 |   |-- conftest.py               # Real Home Assistant runtime fixtures
 |   |-- test_api.py               # Loopback HTTP and payload tests
+|   |-- test_nearby.py            # Nearby keyword/category HTTP, action and Assist tests
 |   |-- test_config_flow.py       # Setup, replacement, and duplicate tests
 |   |-- test_metadata.py          # UI metadata and translation contracts
 |   |-- test_llm.py               # Provider registration, tool calls, and lifecycle
@@ -22,7 +23,7 @@ kakaomap/
 `-- custom_components/
     `-- kakaomap/
         |-- __init__.py           # Response action registration and cleanup
-        |-- api.py                # Async Kakao place search and routing client
+        |-- api.py                # Async Kakao place, nearby and routing client
         |-- routes.py             # Route summary normalization without geometry
         |-- llm.py                # Opt-in Assist provider, tools and instructions
         |-- notifications.py      # Auth error notices and validated-key recovery

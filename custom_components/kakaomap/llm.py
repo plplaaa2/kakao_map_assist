@@ -13,10 +13,18 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import llm
 
-from .const import DEFAULT_LIMIT, DOMAIN, ROUTE_URLS, SERVICE_GET_ROUTE, SERVICE_SEARCH_PLACES
+from .const import (
+    CATEGORY_CODES, DEFAULT_LIMIT, DOMAIN, ROUTE_URLS, SERVICE_GET_ROUTE,
+    SERVICE_SEARCH_NEARBY, SERVICE_SEARCH_PLACES,
+)
 
 API_PROMPT = """Use KakaoMap tools to search places and calculate routes in Korea.
 Resolve place names using kakaomap__search_places; never invent coordinates.
+For nearby requests use kakaomap__search_nearby with explicit center coordinates.
+For places near home first call kakaomap__get_home_location; for a named center search it first.
+If the center is ambiguous, ask the user to choose before searching nearby.
+Pass exactly one query or category. Nearby distances are center distances, not walking distances.
+Use the default 1000 meter radius unless the user specifies another radius; never expand it silently.
 If place candidates are ambiguous, ask the user to choose the correct place.
 Default to public_transport for routes without asking the user about travel mode.
 Use walk or bicycle only when the user explicitly requests that travel mode.
@@ -39,7 +47,7 @@ class KakaoMapAPI(llm.API):
         """Build the tool collection and conversation instructions."""
         return llm.APIInstance(
             api=self, api_prompt=API_PROMPT, llm_context=llm_context,
-            tools=[SearchPlacesTool(), GetRouteTool(), HomeLocationTool()],
+            tools=[SearchPlacesTool(), SearchNearbyTool(), GetRouteTool(), HomeLocationTool()],
         )
 
 
@@ -77,6 +85,32 @@ class SearchPlacesTool(ResponseActionTool):
     parameters = vol.Schema({
         vol.Optional("name", default=""): str,
         vol.Optional("address", default=""): str,
+        vol.Optional("limit", default=DEFAULT_LIMIT): vol.All(int, vol.Range(min=1, max=15)),
+    })
+
+
+# Nearby tool contract; related files: api.py, __init__.py, services.yaml.
+class SearchNearbyTool(ResponseActionTool):
+    """Search by keyword or official category around a resolved center."""
+
+    name = "kakaomap__search_nearby"
+    title = "카카오맵 주변 장소 검색"
+    description = (
+        "Search nearby Korean places ordered by distance. Resolve center coordinates "
+        "from home or place search first; never assume a current phone location. "
+        "Provide exactly one query or category. Category codes: MT1 supermarket, "
+        "CS2 convenience store, PS3 daycare, SC4 school, AC5 academy, PK6 parking, "
+        "OL7 fuel/charging, SW8 subway, BK9 bank, CT1 culture, AG2 real estate, "
+        "PO3 public institution, AT4 attraction, AD5 accommodation, FD6 restaurant, "
+        "CE7 cafe, HP8 hospital, PM9 pharmacy. distance_m is not walking distance."
+    )
+    service = SERVICE_SEARCH_NEARBY
+    parameters = vol.Schema({
+        vol.Required("latitude"): vol.All(float, vol.Range(min=-90, max=90)),
+        vol.Required("longitude"): vol.All(float, vol.Range(min=-180, max=180)),
+        vol.Optional("query", default=""): str,
+        vol.Optional("category", default=""): vol.In(("", *CATEGORY_CODES)),
+        vol.Optional("radius", default=1000): vol.All(int, vol.Range(min=1, max=20000)),
         vol.Optional("limit", default=DEFAULT_LIMIT): vol.All(int, vol.Range(min=1, max=15)),
     })
 
