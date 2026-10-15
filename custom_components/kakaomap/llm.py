@@ -41,7 +41,18 @@ Only on explicit request use TIME for fastest, DISTANCE for shortest, or avoid o
 Car avoid options: toll (toll roads), motorway, ferries, schoolzone, uturn.
 There is no big-road preference. Never claim an unsupported preference was applied.
 Report returned toll_fare as tolls, not taxi fare or fuel cost; do not promise zero tolls unless toll_fare is zero.
-Car route links set endpoints only and do not preserve priority or avoid options.
+Car route links preserve ordered points but not priority, avoid options or a selected alternative.
+Car waypoints: only when requested, resolve each stop with search/geocoding, confirm ambiguity,
+then pass up to five waypoints in the user's order. Never invent or reorder stops.
+Waypoints and alternatives are car-only. Do not silently switch transport to support them.
+Only on a request for other routes or comparison set alternatives=true; otherwise leave it false.
+Compare the returned same-condition candidates by time, distance, toll and arrival_time.
+The first car candidate is primary, not necessarily fastest or toll-free. Preserve API order.
+Use difference_from_primary for candidate differences; negative means less than the primary.
+If only one candidate is returned, say no additional candidate was returned; never invent one.
+Arrival times use request-start time plus route duration in the returned HA time_zone.
+Describe arrival_time as an estimate if leaving at departure_time, not guaranteed or a future-departure forecast.
+Waypoint stopover/dwell time is excluded. Mention that for routes with stops.
 Do not automatically switch to walking or cycling when public transport has no results.
 Do not automatically switch to driving when public transport has no results.
 For 'home' use kakaomap__get_home_location. Home is not the user's current location.
@@ -53,7 +64,7 @@ If current location lookup fails, ask for a reference location; never assume hom
 The location is HA's latest known state, not a freshly measured GPS position.
 Do not infer GPS freshness from state_last_updated or claim live tracking.
 Users do not need to type coordinates: obtain them from search, home or current location tools.
-Summarize route time, transfers, fares and main guidance in conversation responses.
+Summarize route time, estimated arrival, transfers, fares and main guidance in conversation responses.
 Do not include place or route links or read URLs aloud in conversation responses.
 Route duration is not real-time bus arrival information.
 Do not claim opening hours, ratings or reviews: these tools do not provide them.
@@ -161,7 +172,7 @@ class GetRouteTool(ResponseActionTool):
 
     name = "kakaomap__get_route"
     title = "카카오맵 경로 조회"
-    description = "Get a route using coordinates from place search, address geocoding, home or current user location. For an unspecified origin first use kakaomap__get_current_location. Defaults to public transport. Only use walk, bicycle or car when explicitly requested. Car defaults to RECOMMEND. Only upon request use TIME (fastest), DISTANCE (shortest), or avoid toll/motorway/ferries/schoolzone/uturn. Driving preferences require car mode."
+    description = "Get a route using coordinates from place search, address geocoding, home or current user location. For an unspecified origin first use kakaomap__get_current_location. Defaults to public transport. Only use walk, bicycle or car when explicitly requested. Car defaults to RECOMMEND. Only upon request use TIME (fastest), DISTANCE (shortest), or avoid toll/motorway/ferries/schoolzone/uturn. Car-only waypoints accept up to five ordered coordinate/name objects; alternatives=true compares same-condition candidates when requested. Returns estimated arrival in HA time zone, excluding stopover time."
     service = SERVICE_GET_ROUTE
     parameters = vol.Schema({
         vol.Required("start_latitude"): vol.All(float, vol.Range(min=-90, max=90)),
@@ -174,6 +185,12 @@ class GetRouteTool(ResponseActionTool):
         # Car-only options; related files: api.py, __init__.py, services.yaml.
         vol.Optional("priority", default="RECOMMEND"): vol.In(CAR_PRIORITIES),
         vol.Optional("avoid"): [vol.In(CAR_AVOID)],
+        vol.Optional("waypoints"): vol.All([{
+            vol.Required("latitude"): vol.All(float, vol.Range(min=-90, max=90)),
+            vol.Required("longitude"): vol.All(float, vol.Range(min=-180, max=180)),
+            vol.Optional("name"): str,
+        }], vol.Length(max=5)),
+        vol.Optional("alternatives", default=False): bool,
     })
 
 

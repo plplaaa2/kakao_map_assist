@@ -22,6 +22,7 @@ kakaomap/
 |   |-- test_notifications.py     # Auth alerts, deduplication and recovery
 |   |-- test_routes.py            # Route HTTP, normalization and HA action tests
 |   |-- test_car_routes.py        # Driving defaults, preferences, tolls and HTTP errors
+|   |-- test_route_extensions.py  # ETA rollover/DST, ordered waypoints and alternative comparison
 |   `-- test_integration.py       # HA action response and lifecycle tests
 `-- custom_components/
     `-- kakaomap/

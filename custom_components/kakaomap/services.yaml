@@ -195,3 +195,18 @@ get_route:
             - {label: 페리, value: ferries}
             - {label: 어린이 보호구역, value: schoolzone}
             - {label: 유턴, value: uturn}
+    waypoints:
+      name: 자동차 경유지
+      description: 방문 순서대로 최대 5개를 지정합니다. 각 항목은 latitude, longitude와 선택 항목 name을 받습니다. 체류 시간은 도착 예상에 포함하지 않습니다.
+      example:
+        - latitude: 37.4
+          longitude: 127.12
+          name: 경유 장소
+      selector:
+        object:
+    alternatives:
+      name: 자동차 대안 경로 비교
+      description: 요청한 동일 조건에서 API가 제공하는 후보들의 시간·거리·통행료를 비교합니다. 추가 후보가 없을 수도 있습니다.
+      default: false
+      selector:
+        boolean:

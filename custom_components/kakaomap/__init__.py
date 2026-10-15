@@ -61,6 +61,13 @@ ROUTE_SCHEMA = vol.Schema({
     # Driving preferences; related files: api.py, services.yaml, llm.py.
     vol.Optional("priority", default="RECOMMEND"): vol.In(CAR_PRIORITIES),
     vol.Optional("avoid"): [vol.In(CAR_AVOID)],
+    # Ordered car waypoints and opt-in alternatives; related files: api.py, llm.py.
+    vol.Optional("waypoints"): vol.All([{
+        vol.Required("latitude"): cv.latitude,
+        vol.Required("longitude"): cv.longitude,
+        vol.Optional("name"): cv.string,
+    }], vol.Length(max=5)),
+    vol.Optional("alternatives", default=False): bool,
 })
 
 
@@ -72,7 +79,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: KakaoMapConfigEntry) -> 
     entry.async_on_unload(ha_llm.async_register_api(hass, KakaoMapAPI(
         hass=hass, id=f"{DOMAIN}-{entry.entry_id}", name="KakaoMap",
     )))
-    entry.runtime_data = KakaoMapClient(async_get_clientsession(hass), entry.data[CONF_API_KEY])
+    entry.runtime_data = KakaoMapClient(
+        async_get_clientsession(hass), entry.data[CONF_API_KEY], time_zone=hass.config.time_zone,
+    )
 
     async def async_search_places(call: ServiceCall) -> ServiceResponse:
         """Share search error handling; related files: api.py, notifications.py."""
@@ -113,7 +122,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: KakaoMapConfigEntry) -> 
         try:
             return await entry.runtime_data.async_get_route(**call.data)
         except ValueError:
-            raise ServiceValidationError("출발·도착 좌표와 이동 수단을 확인하세요. 출발·도착지는 서로 달라야 하며 경로 기준·회피 옵션은 자동차에서만 지정할 수 있습니다.") from None
+            raise ServiceValidationError("출발·도착 좌표와 이동 수단을 확인하세요. 출발·도착지는 서로 달라야 합니다. 경로 기준·회피·경유지·대안 경로는 자동차에서만 지원하며 경유지는 최대 5개입니다.") from None
         except KakaoMapAuthError:
             # Reuse the same alert ID for route failures; see notifications.py.
             async_notify_auth_failure(hass, entry.entry_id)

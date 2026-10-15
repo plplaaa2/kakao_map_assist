@@ -3,7 +3,9 @@
 Exclude route geometry to keep action responses readable and compact.
 """
 
+from datetime import datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from .const import CAR_PRIORITIES
 
@@ -84,6 +86,7 @@ def normalize_routes(payload: dict[str, Any], mode: str) -> dict[str, Any]:
 # Mobility driving summaries without road geometry; related files: api.py, services.yaml.
 def normalize_car_routes(
     payload: dict[str, Any], route_url: str, priority: str, avoid: list[str],
+    alternatives: bool = False,
 ) -> dict[str, Any]:
     """Preserve driving units, tolls and guidance without confusing taxi estimates with tolls."""
     from .api import KakaoMapRouteError
@@ -92,11 +95,15 @@ def normalize_car_routes(
     if not raw_routes:
         raise ValueError
     routes = []
-    for route in raw_routes:
+    skipped = 0
+    for index, route in enumerate(raw_routes, 1):
         code = route["result_code"]
         if type(code) is not int:
             raise ValueError
         if code != 0:
+            if alternatives and routes:
+                skipped += 1
+                continue
             raise KakaoMapRouteError("자동차 경로를 찾을 수 없습니다. 출발·도착 위치와 경로 조건을 확인하세요.")
         summary = route["summary"]
         duration = _number(summary["duration"])
@@ -118,6 +125,33 @@ def normalize_car_routes(
             "duration_s": duration, "duration_minutes": round(duration / 60, 1),
             "transfers": None, "fare": None, "toll_fare": toll,
             "priority": actual_priority, "route_url": route_url, "steps": steps,
+            "route_index": index, "is_primary": index == 1,
         })
-    return {"mode": "car", "count": len(routes), "route_url": route_url,
-            "priority": priority, "avoid": list(avoid), "routes": routes}
+    result = {"mode": "car", "count": len(routes), "route_url": route_url,
+              "priority": priority, "avoid": list(avoid), "routes": routes,
+              "alternatives_requested": alternatives, "skipped_alternatives": skipped}
+    if alternatives:
+        primary = routes[0]
+        for route in routes:
+            route["difference_from_primary"] = {
+                "duration_s": route["duration_s"] - primary["duration_s"],
+                "distance_m": route["distance_m"] - primary["distance_m"],
+                "toll_fare": route["toll_fare"] - primary["toll_fare"],
+            }
+    return result
+
+
+# Request-time arrival estimates for every travel mode; related files: api.py, README.md.
+def add_arrival_times(
+    result: dict[str, Any], departure_time: datetime, time_zone: ZoneInfo,
+) -> dict[str, Any]:
+    """Add elapsed seconds in UTC before local conversion to handle date and DST changes."""
+    if not result["routes"]:
+        return result
+    result["departure_time"] = departure_time.astimezone(time_zone).isoformat()
+    result["time_zone"] = time_zone.key
+    for route in result["routes"]:
+        route["arrival_time"] = (
+            departure_time + timedelta(seconds=route["duration_s"])
+        ).astimezone(time_zone).isoformat()
+    return result

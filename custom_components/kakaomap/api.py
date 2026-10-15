@@ -7,13 +7,15 @@ from __future__ import annotations
 
 import asyncio
 import math
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
 from aiohttp import ClientError, ClientSession, ClientTimeout, ContentTypeError
 
 from .const import ADDRESS_URL, API_URL, CAR_AVOID, CAR_PRIORITIES, CATEGORY_CODES, CATEGORY_URL, DEFAULT_LIMIT, REQUEST_TIMEOUT, ROUTE_URLS, SEARCH_RECT
-from .routes import normalize_car_routes, normalize_routes
+from .routes import add_arrival_times, normalize_car_routes, normalize_routes
 
 
 class KakaoMapError(Exception):
@@ -47,9 +49,11 @@ class KakaoMapRouteError(KakaoMapError):
 class KakaoMapClient:
     """Use the caller-owned HTTP session for on-demand searches."""
 
-    def __init__(self, session: ClientSession, api_key: str) -> None:
+    # HA supplies its configured time zone; related file: __init__.py.
+    def __init__(self, session: ClientSession, api_key: str, *, time_zone: str = "UTC") -> None:
         self._session = session
         self._api_key = api_key
+        self._time_zone = ZoneInfo(time_zone)
 
     async def async_validate(self) -> None:
         """Check authentication with one small, ordinary search request."""
@@ -222,6 +226,7 @@ class KakaoMapClient:
         end_latitude: float, end_longitude: float,
         mode: str = "public_transport", start_name: str = "출발", end_name: str = "도착",
         priority: str = "RECOMMEND", avoid: list[str] | None = None,
+        waypoints: list[dict[str, Any]] | None = None, alternatives: bool = False,
     ) -> dict[str, Any]:
         """Get route summaries using WGS84 coordinates; related file: routes.py."""
         if mode not in ROUTE_URLS:
@@ -231,7 +236,26 @@ class KakaoMapClient:
             not isinstance(avoid, list) or any(item not in CAR_AVOID for item in avoid)
         ))):
             raise ValueError("Invalid driving preferences.")
-        if mode != "car" and (priority != "RECOMMEND" or avoid):
+        # Ordered car stops and same-condition alternatives; related files: llm.py, services.yaml.
+        if type(alternatives) is not bool:
+            raise ValueError("Alternatives must be a boolean.")
+        if waypoints is not None and (not isinstance(waypoints, list) or len(waypoints) > 5):
+            raise ValueError("Provide at most five waypoints.")
+        resolved_waypoints = []
+        for index, point in enumerate(waypoints or [], 1):
+            if not isinstance(point, dict) or set(point) - {"latitude", "longitude", "name"}:
+                raise ValueError("Invalid waypoint.")
+            for field, bound in (("latitude", 90), ("longitude", 180)):
+                value = point.get(field)
+                if (isinstance(value, bool) or not isinstance(value, (int, float))
+                        or not math.isfinite(value) or not -bound <= value <= bound):
+                    raise ValueError("Invalid waypoint coordinate.")
+            name = point.get("name", f"경유지 {index}")
+            if not isinstance(name, str):
+                raise ValueError("Invalid waypoint name.")
+            resolved_waypoints.append({"latitude": point["latitude"],
+                                       "longitude": point["longitude"], "name": name})
+        if mode != "car" and (priority != "RECOMMEND" or avoid or waypoints or alternatives):
             raise ValueError("Driving preferences require car mode.")
         for coordinate, bound in (
             (start_latitude, 90), (start_longitude, 180),
@@ -242,6 +266,8 @@ class KakaoMapClient:
                 raise ValueError("Invalid coordinate.")
         if (start_latitude, start_longitude) == (end_latitude, end_longitude):
             raise ValueError("Origin and destination must differ.")
+        # Estimate from one request-start instant, before waiting for HTTP; see routes.py.
+        departure_time = datetime.now(UTC)
         # Use Mobility's separate request/response contract; related file: routes.py.
         if mode == "car":
             if not isinstance(start_name, str) or not isinstance(end_name, str):
@@ -249,17 +275,26 @@ class KakaoMapClient:
             params = {
                 "origin": f"{start_longitude},{start_latitude}",
                 "destination": f"{end_longitude},{end_latitude}",
-                "priority": priority, "summary": "false", "alternatives": "false",
+                "priority": priority, "summary": "false", "alternatives": str(alternatives).lower(),
             }
             if avoid:
                 params["avoid"] = "|".join(dict.fromkeys(avoid))
+            if resolved_waypoints:
+                params["waypoints"] = "|".join(
+                    f"{point['longitude']},{point['latitude']}" for point in resolved_waypoints
+                )
             payload = await self._async_request(ROUTE_URLS[mode], params)
-            route_url = (
-                f"https://map.kakao.com/link/by/car/{quote(start_name, safe='')},{start_latitude},{start_longitude}"
-                f"/{quote(end_name, safe='')},{end_latitude},{end_longitude}"
+            points = [{"name": start_name, "latitude": start_latitude, "longitude": start_longitude},
+                      *resolved_waypoints,
+                      {"name": end_name, "latitude": end_latitude, "longitude": end_longitude}]
+            route_url = "https://map.kakao.com/link/by/car/" + "/".join(
+                f"{quote(point['name'], safe='')},{point['latitude']},{point['longitude']}"
+                for point in points
             )
             try:
-                return normalize_car_routes(payload, route_url, priority, avoid or [])
+                result = normalize_car_routes(payload, route_url, priority, avoid or [], alternatives)
+                result["waypoints"] = resolved_waypoints
+                return add_arrival_times(result, departure_time, self._time_zone)
             except (KeyError, TypeError, ValueError, OverflowError):
                 raise KakaoMapResponseError from None
         payload = await self._async_request(ROUTE_URLS[mode], {
@@ -289,7 +324,7 @@ class KakaoMapClient:
         if status != "OK":
             raise KakaoMapResponseError from None
         try:
-            return normalize_routes(payload, mode)
+            return add_arrival_times(normalize_routes(payload, mode), departure_time, self._time_zone)
         except (KeyError, TypeError, ValueError, OverflowError):
             raise KakaoMapResponseError from None
 
