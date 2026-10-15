@@ -3,6 +3,9 @@
 DOMAIN = "kakaomap"
 SERVICE_SEARCH_PLACES = "search_places"
 SERVICE_SEARCH_NEARBY = "search_nearby"
+# Address lookup identifiers; related files: api.py, __init__.py, llm.py.
+SERVICE_GEOCODE_ADDRESS = "geocode_address"
+ADDRESS_URL = "https://dapi.kakao.com/v2/local/search/address.json"
 # Official nearby category codes; related files: api.py, llm.py, services.yaml.
 CATEGORY_CODES = (
     "MT1", "CS2", "PS3", "SC4", "AC5", "PK6", "OL7", "SW8", "BK9",

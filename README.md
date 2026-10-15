@@ -2,6 +2,7 @@
 
 Home Assistant에서 카카오맵 장소와 경로를 검색하는 커스텀 통합입니다. 버전은 `0.1.0`입니다.
 REST API 키를 설정하고 `kakaomap.search_places`로 장소 정보,
+`kakaomap.geocode_address`로 도로명·지번 주소 좌표,
 `kakaomap.search_nearby`로 주변 장소, `kakaomap.get_route`로 이동 경로를 조회합니다. 센서는 생성하지 않으며,
 HA LLM API를 지원하는 대화 에이전트에서 `KakaoMap` 도구 제공자를 선택해 사용할 수 있습니다.
 Windows에서 Home Assistant `2026.10.1`을 기준으로 개발 및 자동 테스트했습니다.
@@ -46,6 +47,7 @@ KakaoMap 도구는 다른 API에 자동으로 추가하지 않으며, 제공자�
 | 도구 | 역할 |
 | --- | --- |
 | `kakaomap__search_places` | 이름·주소로 장소 후보와 좌표 조회 |
+| `kakaomap__geocode_address` | 도로명·지번 주소로 좌표와 주소 후보 조회 |
 | `kakaomap__search_nearby` | 중심 좌표 주변의 키워드·카테고리 검색, 거리순 반환 |
 | `kakaomap__get_route` | 출발·도착 좌표로 경로 조회, 대중교통 기본 |
 | `kakaomap__get_home_location` | HA에 설정된 집 좌표 조회 |
@@ -76,6 +78,7 @@ response_variable: search_result
 스크립트와 자동화에서는 `search_result.places`로 장소 목록을 사용할 수 있습니다.
 주소와 이름은 하나의 키워드로 합쳐 검색하므로 여러 후보가 반환될 수 있습니다.
 주소만 입력해도 장소 검색을 수행하며, 주소 자체의 좌표 변환 기능은 아닙니다.
+정확한 도로명·지번 주소는 별도 `kakaomap.geocode_address` 액션을 사용하세요.
 최신 API의 검색 범위 요구사항에 맞춰 한국 주변 영역(경도 124~132, 위도 32~40)을
 사용합니다. HA의 집 위치로 검색을 제한하지 않습니다.
 
@@ -88,6 +91,35 @@ response_variable: search_result
 응답 오류는 HA 액션 오류로 표시합니다. 평점, 리뷰, 영업시간은 제공하지 않습니다.
 
 대화 에이전트에서 사용하려면 위의 Assist 연결 절차에 따라 KakaoMap 제공자를 선택합니다.
+
+## 주소 조회 액션
+
+`kakaomap.geocode_address`는 카카오 공식 주소 API로 도로명·지번 주소를
+조회합니다. 필수 입력 `query` 하나로 두 주소 형식을 모두 지원합니다.
+`limit`은 1~15개이며 기본값은 5개입니다. 기존 장소 검색은 키워드 검색을 유지합니다.
+
+```yaml
+action: kakaomap.geocode_address
+data:
+  query: 서울 중구 세종대로 110
+  limit: 5
+response_variable: address_result
+```
+
+응답은 `query`, `count`, `total_count`, `is_end`, 주소 후보 목록 `addresses`입니다.
+각 후보에는 `address_name`, 주소 유형 `address_type`, 숫자형 `latitude`·`longitude`,
+지번 주소 `jibun_address`, 도로명 주소 `road_address`, 우편번호 `zone_no`가 있습니다.
+API에서 제공하지 않는 지번·도로명·우편번호는 `null`입니다. 주소 유형은
+`REGION`(지명), `ROAD`(도로명), `REGION_ADDR`(지번 주소), `ROAD_ADDR`(도로명 주소)입니다.
+첫 페이지에서 최대 `limit`개를 반환하고 결과가 없으면 `addresses: []`를 반환합니다.
+인증 오류 알림·재인증과 권한·한도·연결 오류 처리는 기존 검색과 같습니다.
+
+Assist의 기본값은 장소명·업체명 키워드 검색입니다. "강남구 카페"는 키워드 검색,
+"서울 중구 세종대로 110" 또는 "서울 중구 태평로1가 31"은 주소 조회 도구를
+선택하도록 안내합니다. 조회 좌표는 주변 검색의 중심이나 경로의 출발·도착지로
+사용할 수 있습니다. 후보가 모호하면 확인하고, 결과가 없을 때 다른 장소로 임의 대체하지 않습니다.
+주소 조회는 건물·주소 위치 기준이며 동·호수·층 단위 위치를 보장하지 않습니다.
+자동화는 명시적으로 액션을 선택하며, 대화 중 도구 선택은 연결한 LLM이 수행합니다.
 
 ## 주변 장소 검색 액션
 

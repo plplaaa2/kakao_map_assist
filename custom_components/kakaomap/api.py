@@ -11,7 +11,7 @@ from typing import Any
 
 from aiohttp import ClientError, ClientSession, ClientTimeout, ContentTypeError
 
-from .const import API_URL, CATEGORY_CODES, CATEGORY_URL, DEFAULT_LIMIT, REQUEST_TIMEOUT, ROUTE_URLS, SEARCH_RECT
+from .const import ADDRESS_URL, API_URL, CATEGORY_CODES, CATEGORY_URL, DEFAULT_LIMIT, REQUEST_TIMEOUT, ROUTE_URLS, SEARCH_RECT
 from .routes import normalize_routes
 
 
@@ -86,6 +86,59 @@ class KakaoMapClient:
             "is_end": is_end,
             "places": places,
         }
+
+    # Road-name and lot-number geocoding; related files: __init__.py, llm.py.
+    async def async_geocode_address(
+        self, *, query: str, limit: int = DEFAULT_LIMIT,
+    ) -> dict[str, Any]:
+        """Return address candidates without silently choosing an ambiguous match."""
+        if not isinstance(query, str) or not query.strip():
+            raise ValueError("Enter a road-name or lot-number address.")
+        if type(limit) is not int or not 1 <= limit <= 15:
+            raise ValueError("Limit must be an integer between 1 and 15.")
+        query = query.strip()
+        payload = await self._async_request(ADDRESS_URL, {"query": query, "size": limit})
+        try:
+            documents, meta = payload["documents"], payload["meta"]
+            if not isinstance(documents, list) or not isinstance(meta, dict):
+                raise ValueError
+            total, is_end = meta["total_count"], meta["is_end"]
+            if type(total) is not int or total < 0 or type(is_end) is not bool:
+                raise ValueError
+            addresses = [self._normalize_address(item) for item in documents[:limit]]
+        except (KeyError, TypeError, ValueError, OverflowError):
+            raise KakaoMapResponseError from None
+        return {"query": query, "count": len(addresses), "total_count": total,
+                "is_end": is_end, "addresses": addresses}
+
+    @staticmethod
+    def _normalize_address(item: dict[str, Any]) -> dict[str, Any]:
+        """Keep optional address objects nullable; related file: services.yaml."""
+        longitude, latitude = float(item["x"]), float(item["y"])
+        if not (math.isfinite(longitude) and math.isfinite(latitude)
+                and -180 <= longitude <= 180 and -90 <= latitude <= 90):
+            raise ValueError
+        name, kind = item["address_name"], item["address_type"]
+        if not isinstance(name, str) or not name.strip() or kind not in (
+            "REGION", "ROAD", "REGION_ADDR", "ROAD_ADDR",
+        ):
+            raise ValueError
+        result = {"address_name": name, "address_type": kind,
+                  "latitude": latitude, "longitude": longitude,
+                  "jibun_address": None, "road_address": None, "zone_no": None}
+        for key, target in (("address", "jibun_address"), ("road_address", "road_address")):
+            detail = item.get(key)
+            if detail is None:
+                continue
+            if not isinstance(detail, dict) or not isinstance(detail["address_name"], str):
+                raise ValueError
+            result[target] = detail["address_name"]
+            if key == "road_address":
+                zone_no = detail.get("zone_no")
+                if zone_no is not None and not isinstance(zone_no, str):
+                    raise ValueError
+                result["zone_no"] = zone_no
+        return result
 
     # Nearby search with explicit coordinates; related files: __init__.py, llm.py.
     async def async_search_nearby(

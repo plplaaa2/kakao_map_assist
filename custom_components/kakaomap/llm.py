@@ -15,11 +15,17 @@ from homeassistant.helpers import llm
 
 from .const import (
     CATEGORY_CODES, DEFAULT_LIMIT, DOMAIN, ROUTE_URLS, SERVICE_GET_ROUTE,
-    SERVICE_SEARCH_NEARBY, SERVICE_SEARCH_PLACES,
+    SERVICE_GEOCODE_ADDRESS, SERVICE_SEARCH_NEARBY, SERVICE_SEARCH_PLACES,
 )
 
 API_PROMPT = """Use KakaoMap tools to search places and calculate routes in Korea.
 Resolve place names using kakaomap__search_places; never invent coordinates.
+Default to keyword place search for place/business names and area-plus-category queries.
+For an explicit road-name or lot-number address use kakaomap__geocode_address instead.
+Use its returned coordinates for routes or nearby searches; do not invent coordinates.
+If address candidates are ambiguous, ask the user to choose the correct address.
+No address results means not found; never silently substitute an unrelated place.
+Do not claim apartment unit or floor precision: address geocoding locates the address.
 For nearby requests use kakaomap__search_nearby with explicit center coordinates.
 For places near home first call kakaomap__get_home_location; for a named center search it first.
 If the center is ambiguous, ask the user to choose before searching nearby.
@@ -47,7 +53,7 @@ class KakaoMapAPI(llm.API):
         """Build the tool collection and conversation instructions."""
         return llm.APIInstance(
             api=self, api_prompt=API_PROMPT, llm_context=llm_context,
-            tools=[SearchPlacesTool(), SearchNearbyTool(), GetRouteTool(), HomeLocationTool()],
+            tools=[SearchPlacesTool(), GeocodeAddressTool(), SearchNearbyTool(), GetRouteTool(), HomeLocationTool()],
         )
 
 
@@ -80,11 +86,30 @@ class SearchPlacesTool(ResponseActionTool):
 
     name = "kakaomap__search_places"
     title = "카카오맵 장소 검색"
-    description = "Search Korean places by name and/or address. Provide at least one. Returns candidate places with coordinates, phone numbers and links."
+    description = "Default keyword search for Korean place/business names and area-plus-category queries. Provide name and/or area in address. For an explicit road-name or lot-number address use kakaomap__geocode_address instead. Returns place candidates with coordinates, phone numbers and links."
     service = SERVICE_SEARCH_PLACES
     parameters = vol.Schema({
         vol.Optional("name", default=""): str,
         vol.Optional("address", default=""): str,
+        vol.Optional("limit", default=DEFAULT_LIMIT): vol.All(int, vol.Range(min=1, max=15)),
+    })
+
+
+# Address tool contract; related files: api.py, __init__.py, services.yaml.
+class GeocodeAddressTool(ResponseActionTool):
+    """Resolve explicit road-name or lot-number addresses into candidates."""
+
+    name = "kakaomap__geocode_address"
+    title = "카카오맵 주소 조회"
+    description = (
+        "Geocode an explicit Korean road-name or lot-number address. Returns address "
+        "candidates with latitude, longitude, jibun_address and road_address when available. "
+        "Use coordinates for nearby searches or routes. Ask the user to choose if ambiguous. "
+        "For place names or queries like Gangnam cafes use keyword search instead."
+    )
+    service = SERVICE_GEOCODE_ADDRESS
+    parameters = vol.Schema({
+        vol.Required("query"): str,
         vol.Optional("limit", default=DEFAULT_LIMIT): vol.All(int, vol.Range(min=1, max=15)),
     })
 
@@ -97,7 +122,7 @@ class SearchNearbyTool(ResponseActionTool):
     title = "카카오맵 주변 장소 검색"
     description = (
         "Search nearby Korean places ordered by distance. Resolve center coordinates "
-        "from home or place search first; never assume a current phone location. "
+        "from home, place search or address geocoding first; never assume a current phone location. "
         "Provide exactly one query or category. Category codes: MT1 supermarket, "
         "CS2 convenience store, PS3 daycare, SC4 school, AC5 academy, PK6 parking, "
         "OL7 fuel/charging, SW8 subway, BK9 bank, CT1 culture, AG2 real estate, "
@@ -120,7 +145,7 @@ class GetRouteTool(ResponseActionTool):
 
     name = "kakaomap__get_route"
     title = "카카오맵 경로 조회"
-    description = "Get a route using coordinates obtained from place search or home location. Defaults to public transport. Only use walk or bicycle when explicitly requested by the user."
+    description = "Get a route using coordinates obtained from place search, address geocoding or home location. Defaults to public transport. Only use walk or bicycle when explicitly requested by the user."
     service = SERVICE_GET_ROUTE
     parameters = vol.Schema({
         vol.Required("start_latitude"): vol.All(float, vol.Range(min=-90, max=90)),

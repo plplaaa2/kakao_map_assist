@@ -23,6 +23,24 @@ search_places:
           min: 1
           max: 15
           mode: box
+geocode_address:
+  name: 주소 조회
+  description: 도로명 또는 지번 주소로 좌표와 주소 후보를 조회합니다. 장소명·업체명은 장소 검색을 사용하세요.
+  fields:
+    query:
+      name: 도로명 또는 지번 주소
+      required: true
+      example: 서울 중구 세종대로 110
+      selector:
+        text:
+    limit:
+      name: 최대 결과 수
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 15
+          mode: box
 search_nearby:
   name: 주변 장소 검색
   description: 중심 좌표의 반경 안에서 가까운 순으로 검색합니다. 키워드 또는 카테고리 하나만 입력하세요. 거리는 도보 이동 거리가 아닙니다.

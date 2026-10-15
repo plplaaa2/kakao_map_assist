@@ -20,7 +20,7 @@ from .api import (
 )
 from .const import (
     CATEGORY_CODES, DEFAULT_LIMIT, DOMAIN, ROUTE_URLS, SERVICE_GET_ROUTE,
-    SERVICE_SEARCH_NEARBY, SERVICE_SEARCH_PLACES,
+    SERVICE_GEOCODE_ADDRESS, SERVICE_SEARCH_NEARBY, SERVICE_SEARCH_PLACES,
 )
 from .notifications import async_notify_auth_failure
 
@@ -31,6 +31,12 @@ SEARCH_SCHEMA = vol.Schema({
     vol.Optional("name", default=""): cv.string,
     vol.Optional("address", default=""): cv.string,
     vol.Optional("limit", default=DEFAULT_LIMIT): vol.All(cv.positive_int, vol.Range(min=1, max=15)),
+})
+
+# Address action inputs; related files: api.py, llm.py, services.yaml.
+ADDRESS_SCHEMA = vol.Schema({
+    vol.Required("query"): cv.string,
+    vol.Optional("limit", default=DEFAULT_LIMIT): vol.All(int, vol.Range(min=1, max=15)),
 })
 
 # Explicit nearby scope; related files: api.py, llm.py, services.yaml.
@@ -68,12 +74,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: KakaoMapConfigEntry) -> 
     async def async_search_places(call: ServiceCall) -> ServiceResponse:
         """Share search error handling; related files: api.py, notifications.py."""
         try:
+            if call.service == SERVICE_GEOCODE_ADDRESS:
+                return await entry.runtime_data.async_geocode_address(**call.data)
             if call.service == SERVICE_SEARCH_NEARBY:
                 return await entry.runtime_data.async_search_nearby(**call.data)
             return await entry.runtime_data.async_search(
                 name=call.data["name"], address=call.data["address"], limit=call.data["limit"]
             )
         except ValueError:
+            if call.service == SERVICE_GEOCODE_ADDRESS:
+                raise ServiceValidationError(
+                    "도로명 또는 지번 주소를 입력하고 결과 수를 1~15로 지정하세요."
+                ) from None
             if call.service == SERVICE_SEARCH_NEARBY:
                 raise ServiceValidationError(
                     "중심 좌표와 키워드 또는 카테고리 하나를 입력하세요. 반경은 1~20000m, 결과 수는 1~15입니다."
@@ -120,6 +132,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: KakaoMapConfigEntry) -> 
         schema=SEARCH_SCHEMA, supports_response=SupportsResponse.ONLY,
     )
     hass.services.async_register(
+        DOMAIN, SERVICE_GEOCODE_ADDRESS, async_search_places,
+        schema=ADDRESS_SCHEMA, supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
         DOMAIN, SERVICE_SEARCH_NEARBY, async_search_places,
         schema=NEARBY_SCHEMA, supports_response=SupportsResponse.ONLY,
     )
@@ -127,13 +143,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: KakaoMapConfigEntry) -> 
         DOMAIN, SERVICE_GET_ROUTE, async_get_route,
         schema=ROUTE_SCHEMA, supports_response=SupportsResponse.ONLY,
     )
-    _LOGGER.info("KakaoMap place, nearby and route actions are ready")
+    _LOGGER.info("KakaoMap place, address, nearby and route actions are ready")
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: KakaoMapConfigEntry) -> bool:
     """Remove all actions when their connection is unloaded."""
     hass.services.async_remove(DOMAIN, SERVICE_SEARCH_PLACES)
+    hass.services.async_remove(DOMAIN, SERVICE_GEOCODE_ADDRESS)
     hass.services.async_remove(DOMAIN, SERVICE_SEARCH_NEARBY)
     hass.services.async_remove(DOMAIN, SERVICE_GET_ROUTE)
     _LOGGER.info("KakaoMap search and route actions were unloaded")
