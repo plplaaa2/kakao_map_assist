@@ -1,19 +1,36 @@
-# KakaoMap
+# KakaoMap for Home Assistant
 
-Home Assistant에서 카카오맵 장소와 경로를 검색하는 커스텀 통합입니다. 버전은 `0.1.0`입니다.
-REST API 키를 설정하고 `kakaomap.search_places`로 장소 정보,
-`kakaomap.geocode_address`로 도로명·지번 주소 좌표,
-`kakaomap.search_nearby`로 주변 장소, `kakaomap.get_route`로 이동 경로를 조회합니다. 센서는 생성하지 않으며,
-HA LLM API를 지원하는 대화 에이전트에서 `KakaoMap` 도구 제공자를 선택해 사용할 수 있습니다.
-Windows에서 Home Assistant `2026.10.1`을 기준으로 개발 및 자동 테스트했습니다.
+Home Assistant에서 카카오맵 장소와 이동 경로를 조회하는 커스텀 통합입니다.
+Home Assistant 액션과 호환되는 Assist 대화 에이전트에서 사용할 수 있습니다.
+
+[설치](#설치) · [설정](#설정) · [Assist 연결](#assist-도구-제공자-연결) · [문제 제보](#문제-제보)
+
+## 주요 기능
+
+| 기능 | Home Assistant 액션 |
+| --- | --- |
+| 이름이나 키워드로 장소 검색 | [`kakaomap.search_places`](#장소-검색-액션) |
+| 도로명·지번 주소를 좌표로 조회 | [`kakaomap.geocode_address`](#주소-조회-액션) |
+| 주변 장소를 키워드·카테고리로 검색 | [`kakaomap.search_nearby`](#주변-장소-검색-액션) |
+| 대중교통·도보·자전거·자동차 경로 조회 | [`kakaomap.get_route`](#경로-조회-액션) |
+
+자동차 경로는 경유지, 대안 경로 비교, 미래 출발 시각을 지원합니다.
+Assist에서는 “집에서 서울역까지 얼마나 걸려?”처럼 질문할 수 있습니다.
+이 통합은 센서를 생성하지 않습니다.
+
+## 설치
+
+이 문서의 통합 버전은 `0.1.0`입니다. Windows의 Home Assistant `2026.10.1` 환경에서 자동 테스트했습니다.
+
+수동으로 설치하려면 `custom_components/kakaomap` 폴더를 Home Assistant 설정 폴더의
+`custom_components/` 아래에 복사한 뒤 Home Assistant를 재시작합니다.
 
 ## 설정
 
 1. 카카오디벨로퍼스에서 앱을 만들고 [카카오맵] → [사용 설정]을 ON으로 설정합니다.
 2. 해당 앱의 REST API 키를 준비합니다.
-3. `custom_components/kakaomap` 폴더를 HA 설정 폴더의 `custom_components`에 복사하고 재시작합니다.
-4. 설정 → 기기 및 서비스 → 통합 구성요소 추가에서 `KakaoMap`을 선택합니다.
-5. REST API 키를 입력합니다. 유효성 확인을 위해 검색 요청 1회를 수행합니다.
+3. 설정 → 기기 및 서비스 → 통합 구성요소 추가에서 `KakaoMap`을 선택합니다.
+4. REST API 키를 입력합니다. 유효성 확인을 위해 검색 요청 1회를 수행합니다.
 
 통합은 연결 하나만 지원합니다. 통합의 재설정 메뉴에서 키를 교체할 수 있습니다.
 검색 중 인증에 실패하면 재인증 절차를 시작합니다. API 키는 HA 구성 항목에 저장되며
@@ -445,6 +462,11 @@ HA의 실제 LLM API 목록 조회, 도구 호출, 등록 해제 및 재등록�
 원격 저장소 연결 후 기존 작업 지침에 따라 dev push 절차를 적용합니다.
 HACS 배포 전에는 실제 메타데이터, 공개 GitHub 저장소, 설명/토픽,
 브랜드 요건 및 HACS/HA 검증 결과를 확인해야 합니다.
+
+## 문제 제보
+
+재현 단계와 Home Assistant 및 KakaoMap 버전을 GitHub 이슈에 남겨 주세요.
+로그를 첨부할 때는 인증 정보와 개인 위치 정보를 지워 주세요. [GitHub Issues](https://github.com/plplaaa2/kakao_map_assist/issues)
 
 ## 공식 참고 문서
 
