@@ -42,5 +42,5 @@ kakaomap/
             `-- ko.json           # Korean setup strings
 ```
 
-Version 0.1.0 has no entities or scheduled polling. The KakaoMap LLM provider
+The integration has no entities or scheduled polling. The KakaoMap LLM provider
 must be selected in a compatible conversation agent. The ignored .venv directory is local only.

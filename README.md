@@ -1,5 +1,9 @@
 # KakaoMap for Home Assistant
 
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
+![버전 v1.0.0](https://img.shields.io/badge/version-v1.0.0-blue.svg?style=for-the-badge)
+[![Ko-fi 후원](https://img.shields.io/badge/Ko--fi-Support%20Me-F16061?style=for-the-badge&logo=ko-fi)](https://ko-fi.com/plplaaa2)
+
 Home Assistant에서 카카오맵 장소와 이동 경로를 조회하는 커스텀 통합입니다.
 Home Assistant 액션과 호환되는 Assist 대화 에이전트에서 사용할 수 있습니다.
 
@@ -20,7 +24,16 @@ Assist에서는 “집에서 서울역까지 얼마나 걸려?”처럼 질문�
 
 ## 설치
 
-이 문서의 통합 버전은 `0.1.0`입니다. Windows의 Home Assistant `2026.10.1` 환경에서 자동 테스트했습니다.
+Home Assistant `2026.10.1` 이상이 필요합니다.
+
+### HACS
+
+[![HACS에서 KakaoMap 저장소 열기](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=plplaaa2&repository=kakao_map_assist&category=integration)
+
+위 버튼으로 HACS에서 저장소를 열고, 필요하면 사용자 지정 저장소로 추가합니다.
+KakaoMap을 다운로드한 뒤 Home Assistant를 재시작합니다.
+
+### 수동 설치
 
 수동으로 설치하려면 `custom_components/kakaomap` 폴더를 Home Assistant 설정 폴더의
 `custom_components/` 아래에 복사한 뒤 Home Assistant를 재시작합니다.
@@ -425,8 +438,7 @@ HACS 표시 이름과 README 렌더링을 설정합니다. 전체 구조는 `tre
 
 `manifest.json`의 `example.com` 주소는 교체가 필요한 자리표시자입니다.
 `codeowners`에는 실제 GitHub 관리자를 등록해야 합니다.
-사용자 지정 버전 `0.1.0`과 검증 기준에 맞춘 HA 최소 버전 `2026.10.1`을 설정했습니다.
-실제 GitHub 저장소 정보가 없으므로 현재 HACS 공개 배포용 메타데이터는 미완성입니다.
+통합 버전은 `1.0.0`이며, HACS 최소 Home Assistant 버전은 `2026.10.1`입니다.
 
 ## 이후 확장할 파일
 
@@ -467,6 +479,10 @@ HACS 배포 전에는 실제 메타데이터, 공개 GitHub 저장소, 설명/�
 
 재현 단계와 Home Assistant 및 KakaoMap 버전을 GitHub 이슈에 남겨 주세요.
 로그를 첨부할 때는 인증 정보와 개인 위치 정보를 지워 주세요. [GitHub Issues](https://github.com/plplaaa2/kakao_map_assist/issues)
+
+## 후원
+
+KakaoMap과 ipTIME Manager 개발을 같은 Ko-fi 계정에서 후원할 수 있습니다. [Ko-fi로 후원하기](https://ko-fi.com/plplaaa2)
 
 ## 공식 참고 문서
 
