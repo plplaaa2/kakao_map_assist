@@ -5,8 +5,6 @@ kakaomap/
 |-- .gitignore                    # Local artifacts and secret exclusions
 |-- README.md                     # Korean project and development guide
 |-- tree.md                       # English structure reference
-|-- changelog.jsonl               # Internal development history
-|-- caution.jsonl                 # Development cautions
 |-- hacs.json                     # HACS repository metadata
 |-- requirements-dev.txt          # Verified Windows test dependencies
 |-- pytest.ini                    # Async test configuration

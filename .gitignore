@@ -8,3 +8,6 @@ __pycache__/
 !.env.example
 secrets.yaml
 backup/
+/changelog.jsonl
+/changelog_*.jsonl
+/caution.jsonl
