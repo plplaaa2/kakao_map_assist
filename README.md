@@ -483,6 +483,10 @@ HACS 배포 전에는 실제 메타데이터, 공개 GitHub 저장소, 설명/�
 
 KakaoMap과 ipTIME Manager 개발을 같은 Ko-fi 계정에서 후원할 수 있습니다. [Ko-fi로 후원하기](https://ko-fi.com/plplaaa2)
 
+## 라이선스
+
+KakaoMap은 [MIT 라이선스](LICENSE)로 배포합니다.
+
 ## 공식 참고 문서
 
 - [카카오맵 API 소개와 활성화](https://developers.kakao.com/docs/ko/kakaomap/common#rest-api)

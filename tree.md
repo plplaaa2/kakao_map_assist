@@ -4,6 +4,7 @@
 kakaomap/
 |-- .gitignore                    # Local artifacts and secret exclusions
 |-- README.md                     # Korean project and development guide
+|-- LICENSE                       # MIT license
 |-- tree.md                       # English structure reference
 |-- hacs.json                     # HACS repository metadata
 |-- requirements-dev.txt          # Verified Windows test dependencies
